@@ -1,10 +1,8 @@
 # Admin Dashboard PRD
 
-## 1. Overview
+## 1. Executive summary
 
-The admin dashboard is a secure research tool for the Germix project. It gives the research team a way to manage the approved username whitelist, update runtime configuration, export study data, and optionally inspect high-level gameplay statistics.
-
-This dashboard is separate from the player-facing game. It is only for trusted staff and is protected by a shared `ADMIN_SECRET` bearer token.
+The Admin Dashboard is a lightweight, server-side-first admin surface for the Germix research team. It enables whitelist management (approved usernames), runtime configuration (date gates and unlocks), deterministic CSV exports for analysis, and optional read-only summary metrics. The dashboard is strictly for trusted staff and is protected by a shared bearer token for v1.
 
 ## 2. Problem Statement
 
@@ -17,21 +15,24 @@ The main Germix app already handles player signup, login, gameplay, and posttest
 
 Today this work is partly described in the game requirements and partly in an older admin note that still uses outdated terms like `student_id`. This PRD defines the current admin dashboard project in the same vocabulary and data model used by the live app.
 
-## 3. Goals
+## 3. Goals (measurable)
 
-- Give the research team a simple way to upload approved usernames into `ApprovedUsername`.
-- Make it easy to update `Config` values such as posttest windows and mode unlock dates.
-- Provide a clean CSV export of sessions, scores, and posttests for downstream analysis.
-- Keep admin access lightweight and server-side only.
-- Avoid duplicating player auth logic or introducing a second session system.
+- Import approved usernames: admins can upload a CSV and import/upsert without duplicates within 2 minutes.
+- Config management: research staff can change date-gated keys and verify changes in-app without developer intervention.
+- Data export: research team can download a production-ready CSV (sessions, scores, posttests) matching the analysis schema.
+- Safety: admin routes fail-closed (403 on missing/invalid token) and never expose stack traces or secrets.
 
-## 4. Non-Goals
+Success criteria (acceptance):
+- CSV import completes idempotently and reports counts for imported/skipped rows.
+- Config PUT returns the stored key/value and is immediately reflected in behavior gated by that key.
+- Export CSV schema is documented and consumes without manual transformation by analysts.
 
-- No player-facing signup or login UI.
-- No replacement for Supabase Auth.
-- No per-user admin accounts or role-based admin RBAC for v1.
-- No direct editing of gameplay records.
-- No content authoring tools for microbes, clue cards, or posttest questions.
+## 4. Non-Goals (v1)
+
+- No player-facing changes or marketing pages.
+- No multi-user RBAC (v1 uses a single shared bearer token). Add RBAC in a later iteration.
+- No editing of historical gameplay records through the UI (read-only exports only).
+- No content-authoring UI for game assets (seed/import scripts remain the source of truth).
 
 ## 5. Users
 
@@ -42,139 +43,108 @@ Primary users are research staff and project administrators who need to:
 - export data for statistics or manuscript work,
 - and monitor basic operational health.
 
-## 6. Data Model Context
+## 6. Data model & export schema
 
-The dashboard should operate against the existing Germix schema and terminology:
+Operate against the canonical Germix schema. Key tables used by the admin surface:
 
-- `ApprovedUsername` is the whitelist source of truth for signup.
-- `Player` is the authenticated student record created after signup.
-- `Config` stores runtime keys such as posttest windows and mode unlock dates.
-- `GameSession`, `Score`, `SessionMicrobe`, and `PostTest` are the primary gameplay and research tables.
+- `ApprovedUsername` — whitelist used during signup (unique `username`).
+- `Player` — created after signup; references Supabase auth UID.
+- `Config` — key/value runtime flags (dates, unlocks).
+- `GameSession`, `Score`, `SessionMicrobe`, `PostTest` — gameplay and posttest data.
 
-The dashboard must not assume a separate `student_id` system. Username is the identifier used throughout the current app.
+Export CSV columns (stable canonical shape):
+- `session_id, player_id, username, started_at, ended_at, round_index, microbe_id, microbe_name, cards_opened, correct, round_score, session_score, posttest_id, posttest_score`
 
-## 7. Authentication and Access
+If downstream needs change, add a versioned export param `?v=2` instead of mutating v1 shape.
 
-All admin endpoints are protected by `Authorization: Bearer <ADMIN_SECRET>`.
+## 7. Authentication and access
 
-Requirements:
+For v1 the dashboard uses a shared bearer token as an API guard:
 
-- Missing or incorrect token returns `403`.
-- Admin routes must not depend on Supabase user sessions.
-- Admin routes should not leak whether a token is close to correct.
-- Error responses must never expose stack traces, SQL details, or secret values.
+- Header: `Authorization: Bearer <ADMIN_SECRET>`
+- Missing/invalid token: `403` (use consistent error envelope)
 
-## 8. Functional Scope
+Security rules:
 
-### 8.1 Username Import
+- Do not expose timing-based hints (constant-time compare recommended) or stack traces in errors.
+- Admin endpoints must be server-only (Next.js route handlers, no client-side secrets persisted).
+- Log admin requests and exports (audit trail) with admin client IP and timestamp; redact token values.
 
-The dashboard supports bulk import of approved usernames from CSV.
+## 8. Functional scope (API surface)
 
-Requirements:
+Core endpoints (examples):
 
-- Accept multipart file upload.
-- Parse a CSV with a `username` column.
-- Upsert rows into `ApprovedUsername`.
-- Be idempotent on re-upload.
-- Return counts for imported and skipped rows.
-- Skip blank rows and malformed entries.
-- Preserve the case-sensitive username exactly as imported.
+- `POST /api/admin/import-usernames` — multipart CSV upload. Validates `username` column, upserts, returns `{ imported, skipped, errors: [] }`.
+- `GET /api/admin/export?format=csv&v=1` — stream CSV with canonical columns; include `started_at`/`ended_at` timestamps.
+- `PUT /api/admin/config/:key` — body `{ value }` (string|number|ISODate). Upserts and returns `{ key, value, updatedAt }`.
+- `GET /api/admin/dashboard` — optional read-only aggregates (cached or precomputed for performance).
 
-### 8.2 Data Export
+Import behavior:
 
-The dashboard supports study-data export.
+- Idempotent upsert by `username` (preserve case).
+- Validate rows: skip blanks, dedupe in-memory before DB upsert, report malformed rows with line numbers.
 
-Requirements:
+Export behavior:
 
-- `GET /api/admin/export` defaults to CSV.
-- Export should join the tables needed for analysis, including sessions, scores, and posttests.
-- Output should be directly usable by the research team without additional manual cleanup.
-- The export should include stable column names and deterministic ordering where practical.
+- Deterministic column ordering and CSV header row.
+- Support streaming to avoid memory pressure for large exports.
+- Audit log: record who exported (IP + timestamp) and store anonymized summary (no PII leak beyond usernames).
 
-### 8.3 Config Management
+Config behavior:
 
-The dashboard supports arbitrary config keys through `PUT /api/admin/config/:key`.
+- Strongly encourage ISO-8601 strings for date keys; UI will parse and show human-readable date/time.
+- Changing config should produce a short success toast and show the updated value on the page.
 
-Requirements:
+## 9. UX requirements
 
-- Accept a JSON body with `{ value }`.
-- Upsert by key.
-- Support date-like values as strings for posttest windows and unlock dates.
-- Support future keys without code changes when possible.
-- Return the stored key/value after update.
+- Minimal, task-focused layout: header (env + token status), import panel, config editor, export controls, optional analytics panel.
+- Provide clear success and error feedback; show row-level errors for imports.
+- Export UI: allow selecting date ranges, export format, and preview first 10 rows.
+- Config UI: inline editing with validation and `Confirm` step for destructive keys (e.g., unlock dates).
 
-### 8.4 Optional Summary Dashboard
+Accessibility:
+- Keyboard-accessible file upload, controls, and table navigation.
+- Color/contrast and ARIA labels for all interactive elements.
 
-If implemented, the dashboard should show high-level aggregate metrics:
+## 10. Technical requirements
 
-- active players,
-- games played per day,
-- average time per microbe,
-- per-microbe accuracy,
-- and posttest completion count.
+- Implement as Next.js route handlers (server-only) + a minimal React admin page.
+- TypeScript + Prisma (reuse existing schema). Keep DB migrations backward compatible with exports.
+- Stream CSV generation on the server; paginate and use async iterators for memory safety.
+- Tests: unit for import parsing/upsert logic; integration test for export shape and config PUT; security tests for token rejection.
 
-This view should be read-only and should not replace CSV export.
+Monitoring:
+- Track export counts, import errors, and config changes in Sentry or similar (no secrets in logs).
 
-## 9. UX Requirements
+## 11. Security requirements
 
-The admin UI should be practical rather than decorative.
+- Gate routes with bearer token; store token in server environment only.
+- Use constant-time token comparison and generic error messages.
+- Audit log config changes and exports (timestamp, IP, action); rotate logs per policy.
+- Treat export data as sensitive — ensure TLS, and limit pre-signed link lifetimes if implemented.
 
-- Minimal navigation.
-- Clear upload and export actions.
-- Confirmation feedback after a successful import or config update.
-- Error banners that explain what failed without exposing internals.
-- Tables or cards for stats only if the optional dashboard is included.
+## 12. Success metrics
 
-Recommended layout:
+- Import idempotency: repeated CSV uploads do not create duplicates.
+- Time-to-change: research staff can change a config key and confirm the change within 3 minutes.
+- Export usability: first-time analyst can ingest exported CSV into analysis tools without transformations.
+- Security: 100% of admin endpoints return `403` for invalid/missing token in automated tests.
 
-- header with environment and auth status,
-- import panel,
-- config editor,
-- export panel,
-- optional analytics section.
+## 13. Suggested deliverables
 
-## 10. Technical Requirements
+- `src/app/api/admin/import-usernames/route.ts` (CSV parsing, validation, upsert)
+- `src/app/api/admin/export/route.ts` (streaming CSV, canonical shape)
+- `src/app/api/admin/config/[key]/route.ts` (upsert, validation)
+- `src/app/api/admin/dashboard/route.ts` (optional cached aggregates)
+- `app/admin/*` pages (minimal React UI for tasks above)
+- Tests and CI assertions for security and data shape
 
-- Build as a Next.js app consistent with the existing Germix stack.
-- Use TypeScript and Prisma against the same Supabase-backed database.
-- Reuse the current API error envelope style.
-- Keep admin route handlers server-side only.
-- Prefer CSV generation on the server.
-- Keep import operations idempotent.
+## 14. Definition of Done (concrete)
 
-## 11. Security Requirements
-
-- Gate every admin route with the shared bearer token.
-- Avoid storing admin credentials in the browser.
-- Reject malformed requests early.
-- Do not echo secrets or raw database errors.
-- Treat export data as sensitive research data.
-
-## 12. Success Metrics
-
-- Approved usernames can be imported without duplicates.
-- Research staff can update config values without developer assistance.
-- CSV export can be used directly for analysis.
-- Admin requests fail closed when the token is absent or invalid.
-- The dashboard remains usable even as the schema grows.
-
-## 13. Suggested Deliverables
-
-- `src/app/api/admin/import-usernames/route.ts`
-- `src/app/api/admin/export/route.ts`
-- `src/app/api/admin/config/[key]/route.ts`
-- `src/app/api/admin/dashboard/route.ts` optional
-- an admin UI page or pages that call those endpoints
-- tests for token rejection, import idempotency, export shape, and config upsert behavior
-
-## 14. Definition of Done
-
-- CSV import upserts `ApprovedUsername` rows idempotently.
-- CSV export includes the expected joined research data.
-- Config updates work for the current posttest date keys.
-- All admin routes return `403` on missing or incorrect bearer token.
-- No stack traces or sensitive data appear in responses.
-- TypeScript passes without errors.
+- Import: upload CSV → response `{ imported, skipped, errors }` and DB reflects upserts.
+- Config: `PUT /api/admin/config/posttest_unlock` with ISO date → returns `{ key, value }` and UI shows updated value.
+- Export: `GET /api/admin/export?format=csv` streams CSV with header row matching documented columns.
+- Security: automated tests assert `403` for missing/invalid `Authorization` header.
 
 ## 15. References
 

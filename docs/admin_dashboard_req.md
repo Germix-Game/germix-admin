@@ -1,65 +1,71 @@
 # Admin Dashboard Requirements
 
-This document captures the current admin-facing backend requirements for Germix. The dashboard is protected by an `ADMIN_SECRET` bearer token and is used by the research team for whitelist management, configuration, and data export.
+This document translates the PRD into prioritized work items, API contracts, and acceptance tests. The admin surface uses a shared bearer token for v1.
 
-## Current Scope
+## Priority backlog (sprint-sized)
 
-- `POST /api/admin/import-usernames` — multipart CSV upload with a `username` column; idempotent upsert into `ApprovedUsername`; return `{ imported: N, skipped: M }`.
-- `GET /api/admin/export` — query param `?format=csv` (default); CSV export of sessions, round scores, and posttests joined for analysis.
-- `PUT /api/admin/config/:key` — accept `{ value }`; upsert a `Config` row for the given key; used for posttest window dates and mode unlock dates.
-- `GET /api/admin/dashboard` — optional aggregate stats: active players, games played per day, average time per microbe, per-microbe accuracy, and posttest completion count.
-- All admin routes return `403` if `Authorization: Bearer <ADMIN_SECRET>` is missing or incorrect.
+1. Import usernames (critical)
+	- `POST /api/admin/import-usernames`
+	- Acceptance: idempotent upsert, returns `{ imported, skipped, errors }`, supports CSV with header `username`.
+2. Export CSV (critical)
+	- `GET /api/admin/export?format=csv&v=1&from=&to=`
+	- Acceptance: streams canonical CSV columns; preview available in UI; audit log entry created.
+3. Config key upsert (high)
+	- `PUT /api/admin/config/:key` body `{ value }`
+	- Acceptance: writes to `Config`, returns `{ key, value, updatedAt }`, UI reflects change.
+4. Basic dashboard aggregates (medium)
+	- `GET /api/admin/dashboard` cached view (1-min TTL)
+	- Acceptance: returns `activePlayers`, `gamesPerDay`, `avgTimePerMicrobe`.
+5. Tests and CI (critical)
+	- Unit tests for import parser, integration tests for export shape, security tests for token rejection.
 
-## Files
+## API contracts (examples)
+
+POST /api/admin/import-usernames
+- Request: multipart/form-data file=`approved.csv`
+- Response 200:
+```json
+{ "imported": 123, "skipped": 2, "errors": [{ "line": 42, "reason": "missing username" }] }
+```
+
+GET /api/admin/export?format=csv&v=1&from=2026-05-01&to=2026-05-24
+- Response: `text/csv` stream with header row matching PRD export columns.
+
+PUT /api/admin/config/:key
+- Request body: `{ "value": "2026-08-01T00:00:00Z" }`
+- Response 200:
+```json
+{ "key": "posttest_unlock", "value": "2026-08-01T00:00:00Z", "updatedAt": "2026-05-25T12:00:00Z" }
+```
+
+## Validation & error model
+
+- Follow existing error envelope: `{ error: { code, message, details[] } }`.
+- Import: report per-row errors, reject file if header missing.
+- Export: return 400 for invalid date range, 403 for missing/invalid token.
+
+## Acceptance tests (concrete)
+
+- Import: upload a CSV with duplicates and malformed rows → assert DB has single row per username and response shows counts.
+- Export: request CSV for small time window → assert header row equals documented columns and sample row values match DB.
+- Config: PUT an ISO date → assert `Config` row updated and API returns updatedAt.
+- Security: call each admin endpoint without `Authorization` → assert `403`.
+
+## Seed script (operational)
+
+- `prisma/seed.ts` reads `prisma/seed-data/*.csv`, upserts `Microbe` and `ClueCard` rows, constructs `ClueCard.imageUrl` from `NEXT_PUBLIC_SUPABASE_URL`.
+- Acceptance: idempotent; logs counts; sample CSV included in `prisma/seed-data/` for tests.
+
+## Files to add / update
 
 - `src/app/api/admin/import-usernames/route.ts`
 - `src/app/api/admin/export/route.ts`
 - `src/app/api/admin/config/[key]/route.ts`
-- `src/app/api/admin/dashboard/route.ts` (optional)
+- `src/app/admin/page.tsx` (minimal UI)
+- `prisma/seed.ts` and sample CSV in `prisma/seed-data/`
 
-## Definition of Done
+## Notes
 
-- [ ] CSV import upserts usernames idempotently and returns correct counts.
-- [ ] CSV export includes sessions, scores, and posttests in valid CSV format.
-- [ ] `PUT /api/admin/config/:key` upserts values correctly, including posttest date keys.
-- [ ] All admin routes return `403` on missing or incorrect bearer token.
-- [ ] No stack traces or sensitive data leak in error responses.
-- [ ] No TypeScript errors.
-
-## References
-
-- [docs/germix_game_requirements.md](germix_game_requirements.md) Section 4.3 (Whitelist import)
-- [docs/germix_game_requirements.md](germix_game_requirements.md) Section 12.4 (Route table)
-- [docs/germix_game_requirements.md](germix_game_requirements.md) Section 13 (Admin dashboard)
-- [docs/auth-flow.md](auth-flow.md) for the current whitelist/auth model.
-
-# Seed Script
-## Overview
-Build the seed script that bulk-imports microbes and clue cards from a CSV + Supabase Storage bucket. This is required before any gameplay can be tested end-to-end.
-
-## Scope
-- `prisma/seed.ts` reads a CSV where each row maps to one `ClueCard` (columns: `microbe_name`, `short_name`, `game_mode`, `gram_type`, `tags`, `star_rating`, `category`, `label`, `image_filename`)
-- Parse PNG filenames following Section 20 naming convention: `{microbe-name-kebab-case}-{category-slug}-{two-digit-index}.png`
-- Construct Supabase Storage CDN URL from `NEXT_PUBLIC_SUPABASE_URL` + bucket path `cards/{gameMode}/{filename}`
-- Upsert `Microbe` rows (unique on `name`) and `ClueCard` rows
-- Idempotent: re-running seed produces no duplicate rows
-- Log import summary: microbes upserted, cards upserted, skipped
-
-## Files
-- `prisma/seed.ts`
-- `prisma/seed-data/` — sample CSV for local testing
-
-## Definition of Done
-- [ ] Script parses CSV and maps all columns to schema fields correctly
-- [ ] PNG filenames parsed per Section 20 naming convention
-- [ ] Supabase Storage CDN URLs constructed and stored in `ClueCard.imageUrl`
-- [ ] `Microbe` and `ClueCard` rows upserted (no duplicates on re-run)
-- [ ] Script logs import counts on completion
-- [ ] Tested with sample CSV covering at least 3 microbes × 5 cards each
-- [ ] `prisma db seed` command runs without errors
-- [ ] No TypeScript errors; PR reviewed and merged to `dev`
-
-## References
-- Requirements Section 2.3 (Card asset storage)
-- Requirements Section 20 (Card asset naming convention)
+- Keep exports versioned. Add `v` query parameter when changing CSV shape.
+- For large datasets prefer streaming via an async generator and `res.write`.
 
