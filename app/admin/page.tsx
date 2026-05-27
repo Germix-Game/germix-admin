@@ -1,51 +1,33 @@
 import Link from "next/link";
 import {
-  ArrowDownToLine,
   Database,
-  LayoutDashboard,
   ListFilter,
   LogOut,
-  Settings2,
   ShieldCheck,
-  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const cards = [
-  {
-    label: "Whitelist imports",
-    value: "Ready",
-    description: "Bulk approved usernames from CSV.",
-    icon: Users,
-  },
-  {
-    label: "Runtime config",
-    value: "Ready",
-    description: "Date gates and unlock keys.",
-    icon: Settings2,
-  },
-  {
-    label: "CSV export",
-    value: "Ready",
-    description: "Analysis-friendly session data.",
-    icon: ArrowDownToLine,
-  },
-  {
-    label: "Metrics",
-    value: "Template",
-    description: "Read-only summary cards.",
-    icon: LayoutDashboard,
-  },
-];
+type SearchParams = Promise<{
+  imported?: string;
+  skipped?: string;
+  error?: string;
+  message?: string;
+}>;
 
-const recentTasks = [
-  "ApprovedUsername import",
-  "Config update audit",
-  "Export queue",
-  "Session health snapshot",
-];
+const errorMessages: Record<string, string> = {
+  missing_file: "Choose a CSV file before uploading.",
+  missing_input: "Enter a username or choose a CSV file.",
+  invalid_csv: "The CSV file is missing the required username header.",
+  invalid_username: "The username cannot include leading or trailing spaces.",
+};
 
-export default function AdminPage() {
+export default async function AdminPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const imported = params.imported ? Number(params.imported) : null;
+  const skipped = params.skipped ? Number(params.skipped) : null;
+  const errorMessage = params.error ? errorMessages[params.error] ?? params.error : null;
+  const infoMessage = params.message === "import_success" ? "Username import completed." : null;
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(15,23,42,0.08),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#eef2f7_100%)] px-6 py-10 text-slate-950">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-7xl flex-col gap-6">
@@ -72,50 +54,114 @@ export default function AdminPage() {
           </form>
         </header>
 
-        <section className="grid gap-6 xl:grid-cols-[1.55fr_0.85fr]">
-          <div className="grid gap-6 md:grid-cols-2">
-            {cards.map(({ label, value, description, icon: Icon }) => (
-              <article
-                key={label}
-                className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.26)]"
+        <section className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
+          <article className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.26)] md:p-8">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  Whitelist import
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                  Upload approved usernames
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Add a single username manually or upload a CSV with a <span className="font-medium text-slate-900">username</span>
+                  column. Existing usernames are skipped automatically.
+                </p>
+              </div>
+              <div className="rounded-2xl bg-slate-950 px-4 py-3 text-sm text-white">
+                <p className="font-medium">Accepted format</p>
+                <p className="mt-1 text-slate-300">username or CSV</p>
+              </div>
+            </div>
+
+            {(errorMessage || infoMessage || imported !== null) && (
+              <div
+                className={`mt-6 rounded-2xl border px-4 py-3 text-sm ${
+                  errorMessage
+                    ? "border-amber-200 bg-amber-50 text-amber-900"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                }`}
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5">{errorMessage ? "!" : "✓"}</span>
                   <div>
-                    <p className="text-sm font-medium text-slate-500">{label}</p>
-                    <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-                      {value}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-slate-950 p-3 text-white">
-                    <Icon className="size-5" />
+                    <p>{errorMessage ?? infoMessage}</p>
+                    {imported !== null && skipped !== null && !errorMessage && (
+                      <p className="mt-1 text-xs opacity-80">
+                        Imported {imported} usernames, skipped {skipped}.
+                      </p>
+                    )}
                   </div>
                 </div>
-                <p className="mt-4 text-sm leading-6 text-slate-600">{description}</p>
-              </article>
-            ))}
-          </div>
+              </div>
+            )}
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              <form action="/api/admin/import-usernames" method="post" className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Manual add</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Add one approved username without creating a CSV.
+                  </p>
+                </div>
+
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Username</span>
+                  <input
+                    type="text"
+                    name="username"
+                    placeholder="student01"
+                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+                  />
+                </label>
+
+                <Button type="submit" size="lg" className="w-full rounded-2xl px-6">
+                  Add username
+                </Button>
+              </form>
+
+              <form action="/api/admin/import-usernames" method="post" encType="multipart/form-data" className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">CSV import</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Upload a file with a header named <span className="font-medium text-slate-900">username</span>.
+                  </p>
+                </div>
+
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-slate-700">CSV file</span>
+                  <input
+                    type="file"
+                    name="file"
+                    accept=".csv,text/csv"
+                    className="block w-full cursor-pointer rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 file:mr-4 file:rounded-xl file:border-0 file:bg-slate-950 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:border-slate-400"
+                  />
+                </label>
+
+                <Button type="submit" size="lg" variant="outline" className="w-full rounded-2xl px-6">
+                  Import CSV
+                </Button>
+              </form>
+            </div>
+
+            <div className="mt-4 text-sm leading-6 text-slate-500">
+              The upload is idempotent. Duplicate usernames are skipped.
+            </div>
+          </article>
 
           <aside className="space-y-6">
             <section className="rounded-[1.75rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-[0_22px_50px_-30px_rgba(15,23,42,0.9)]">
               <div className="flex items-center gap-2 text-sm text-slate-300">
                 <Database className="size-4" />
-                System overview
+                Import rules
               </div>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight">
-                Ready for Supabase-backed operations.
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
-                Connect the import, config, and export routes here when you are ready.
-                Until then this page gives you a clean authenticated template.
-              </p>
-
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {recentTasks.map((task) => (
-                  <div key={task} className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-slate-200">
-                    {task}
-                  </div>
-                ))}
-              </div>
+              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
+                <li>• CSV must include a header named <span className="font-medium text-white">username</span>.</li>
+                <li>• Rows with leading or trailing spaces are rejected.</li>
+                <li>• Re-uploading the same file will not create duplicates.</li>
+                <li>• Case is preserved exactly as imported.</li>
+              </ul>
             </section>
 
             <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.22)]">
@@ -124,11 +170,9 @@ export default function AdminPage() {
                 Next work items
               </div>
               <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700">
-                <li>• Add the whitelist import panel.</li>
                 <li>• Add config editing for unlock dates.</li>
                 <li>• Add CSV export with date filtering.</li>
-                <li>• Add recent audit activity once the backend is wired.
-                </li>
+                <li>• Add recent audit activity once the backend is wired.</li>
               </ul>
 
               <Button asChild variant="secondary" size="lg" className="mt-6 w-full rounded-2xl">

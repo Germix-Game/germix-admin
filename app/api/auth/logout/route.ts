@@ -2,7 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 
 export async function POST(request: NextRequest) {
-  const redirectResponse = NextResponse.redirect(new URL("/login?message=signed_out", request.url));
+  const redirectResponse = NextResponse.redirect(new URL("/login?message=signed_out", request.url), {
+    status: 303,
+  });
 
   const supabase = createSupabaseServerClient({
     getAll: () => request.cookies.getAll(),
