@@ -10,10 +10,10 @@ export async function POST(request: NextRequest) {
   if (!email || !password) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("error", "missing_fields");
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 
-  const successResponse = NextResponse.redirect(new URL("/admin", request.url));
+  const successResponse = NextResponse.redirect(new URL("/admin", request.url), { status: 303 });
 
   const supabase = createSupabaseServerClient({
     getAll: () => request.cookies.getAll(),
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("error", "invalid_credentials");
     redirectUrl.searchParams.set("email", email);
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 
   const {
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("error", "not_admin");
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 
   const adminIsActive = await isActiveAdminUser(user.id, user.email);
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("error", "admin_inactive");
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(redirectUrl, { status: 303 });
   }
 
   return successResponse;
