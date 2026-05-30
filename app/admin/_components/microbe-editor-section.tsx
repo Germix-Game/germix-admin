@@ -352,7 +352,7 @@ export function MicrobeImportSection({
                 <input
                   type="number"
                   min={0}
-                  step={1}
+                  step="any"
                   name="starRating"
                   value={starRating}
                   onChange={(event) => setStarRating(event.target.value)}

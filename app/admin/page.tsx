@@ -49,7 +49,7 @@ const microbeErrorMessages: Record<string, string> = {
   microbe_exists: "Another microbe already uses that name.",
   invalid_game_mode: "Choose a valid game mode.",
   invalid_gram_type: "Choose a valid gram type.",
-  invalid_star_rating: "Star rating must be a non-negative integer.",
+  invalid_star_rating: "Star rating must be a non-negative number.",
   missing_clue_cards: "Provide at least one clue card id.",
 };
 

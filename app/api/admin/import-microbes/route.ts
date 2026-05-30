@@ -138,8 +138,8 @@ function parseMicrobe(
     errors.push({ line, reason: `invalid gramType \"${gramTypeRaw}\"` });
   }
 
-  if (!Number.isInteger(starRatingNumber) || starRatingNumber < 0) {
-    errors.push({ line, reason: "starRating must be a non-negative integer" });
+  if (!Number.isFinite(starRatingNumber) || starRatingNumber < 0) {
+    errors.push({ line, reason: "starRating must be a non-negative number" });
   }
 
   const rawTags = splitListValues(raw.tags);
