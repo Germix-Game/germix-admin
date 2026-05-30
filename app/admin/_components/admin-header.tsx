@@ -13,7 +13,7 @@ export function AdminHeader() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Germix admin dashboard</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            This is the protected shell for whitelist management, clue-card imports,
+            This is the protected shell for whitelist management, clue-card imports, microbe imports,
             configuration, and export workflows. The actual tools can land here incrementally.
           </p>
         </div>
