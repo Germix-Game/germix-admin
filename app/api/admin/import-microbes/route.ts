@@ -25,6 +25,7 @@ type ImportMicrobeError = {
 
 type ImportResult = {
   imported: number;
+  updated: number;
   skipped: number;
   errors: ImportMicrobeError[];
 };
@@ -222,7 +223,7 @@ async function importMicrobes(microbes: ParsedMicrobe[]) {
     imported.push(microbe.name);
   }
 
-  return { imported, skipped, errors };
+  return { imported, updated: 0, skipped, errors };
 }
 
 export async function POST(request: NextRequest) {
@@ -232,11 +233,12 @@ export async function POST(request: NextRequest) {
   }
 
   const formData = await request.formData();
-  const mode = String(formData.get("mode") ?? "single");
+  const mode = String(formData.get("mode") ?? "create");
 
-  if (mode !== "single") {
+  if (mode !== "create" && mode !== "single" && mode !== "edit") {
     const response: ImportResult = {
       imported: 0,
+      updated: 0,
       skipped: 0,
       errors: [{ line: 0, reason: "unsupported import mode" }],
     };
@@ -272,6 +274,7 @@ export async function POST(request: NextRequest) {
   if (parsed.errors.length > 0 || !parsed.microbe) {
     const response: ImportResult = {
       imported: 0,
+      updated: 0,
       skipped: 0,
       errors: parsed.errors.length > 0 ? parsed.errors : [{ line: 1, reason: "invalid input" }],
     };
@@ -283,9 +286,121 @@ export async function POST(request: NextRequest) {
         });
   }
 
+  if (mode === "edit") {
+    const microbeId = String(formData.get("microbeId") ?? "").trim();
+
+    if (!microbeId) {
+      const response: ImportResult = {
+        imported: 0,
+        updated: 0,
+        skipped: 0,
+        errors: [{ line: 1, reason: "missing microbeId" }],
+      };
+
+      return wantsJson(request)
+        ? NextResponse.json(response, { status: 400 })
+        : NextResponse.redirect(new URL("/admin?microbesError=missing_microbe_id", request.url), {
+            status: 303,
+          });
+    }
+
+    const existing = await prisma.microbe.findUnique({
+      where: { id: microbeId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      const response: ImportResult = {
+        imported: 0,
+        updated: 0,
+        skipped: 0,
+        errors: [{ line: 1, reason: `microbe not found: ${microbeId}` }],
+      };
+
+      return wantsJson(request)
+        ? NextResponse.json(response, { status: 404 })
+        : NextResponse.redirect(new URL("/admin?microbesError=microbe_not_found", request.url), {
+            status: 303,
+          });
+    }
+
+    const duplicateName = await prisma.microbe.findFirst({
+      where: { name: parsed.microbe.name, id: { not: microbeId } },
+      select: { id: true },
+    });
+
+    if (duplicateName) {
+      const response: ImportResult = {
+        imported: 0,
+        updated: 0,
+        skipped: 0,
+        errors: [{ line: 1, reason: `microbe already exists: ${parsed.microbe.name}` }],
+      };
+
+      return wantsJson(request)
+        ? NextResponse.json(response, { status: 400 })
+        : NextResponse.redirect(new URL(`/admin?microbesError=microbe_exists`, request.url), {
+            status: 303,
+          });
+    }
+
+    const coverage = await validateClueCoverage(parsed.microbe.clueCardIds);
+    if (!coverage.ok) {
+      const response: ImportResult = {
+        imported: 0,
+        updated: 0,
+        skipped: 0,
+        errors: [{ line: 1, reason: coverage.reason }],
+      };
+
+      return wantsJson(request)
+        ? NextResponse.json(response, { status: 400 })
+        : NextResponse.redirect(new URL(`/admin?microbesError=${coverage.reason}`, request.url), {
+            status: 303,
+          });
+    }
+
+    await prisma.microbe.update({
+      where: { id: microbeId },
+      data: {
+        name: parsed.microbe.name,
+        shortName: parsed.microbe.shortName,
+        gameMode: parsed.microbe.gameMode,
+        gramType: parsed.microbe.gramType,
+        tags: parsed.microbe.tags,
+        starRating: parsed.microbe.starRating,
+        answerImageUrl: parsed.microbe.answerImageUrl,
+        clues: {
+          deleteMany: {},
+          create: parsed.microbe.clueCardIds.map((clueCardId, clueIndex) => ({
+            clueCard: { connect: { id: clueCardId } },
+            sortOrder: clueIndex + 1,
+          })),
+        },
+      },
+    });
+
+    const response: ImportResult = {
+      imported: 0,
+      updated: 1,
+      skipped: 0,
+      errors: [],
+    };
+
+    if (wantsJson(request)) {
+      return NextResponse.json(response, { status: 200 });
+    }
+
+    const redirectUrl = new URL("/admin", request.url);
+    redirectUrl.searchParams.set("microbesUpdated", String(response.updated));
+    redirectUrl.searchParams.set("microbesMessage", "microbe_update_success");
+    return NextResponse.redirect(redirectUrl, { status: 303 });
+  }
+
   const result = await importMicrobes([parsed.microbe]);
   const response: ImportResult = {
     imported: result.imported.length,
+    updated: result.updated,
     skipped: result.skipped,
     errors: result.errors,
   };
@@ -296,6 +411,7 @@ export async function POST(request: NextRequest) {
 
   const redirectUrl = new URL("/admin", request.url);
   redirectUrl.searchParams.set("microbesImported", String(response.imported));
+  redirectUrl.searchParams.set("microbesUpdated", String(response.updated));
   redirectUrl.searchParams.set("microbesSkipped", String(response.skipped));
   if (response.errors.length > 0) {
     redirectUrl.searchParams.set("microbesError", response.errors[0].reason);

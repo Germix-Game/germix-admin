@@ -3,11 +3,12 @@ import { prisma } from "@/lib/prisma";
 
 import { AdminHeader } from "./_components/admin-header";
 import { ClueCardImportSection } from "./_components/clue-card-import-section";
-import { MicrobeImportSection } from "./_components/microbe-import-section";
+import { MicrobeImportSection } from "./_components/microbe-editor-section";
 import { UsernameImportSection } from "./_components/username-import-section";
 
 type SearchParams = Promise<{
   imported?: string;
+  updated?: string;
   skipped?: string;
   error?: string;
   message?: string;
@@ -16,6 +17,7 @@ type SearchParams = Promise<{
   cardsError?: string;
   cardsMessage?: string;
   microbesImported?: string;
+  microbesUpdated?: string;
   microbesSkipped?: string;
   microbesError?: string;
   microbesMessage?: string;
@@ -42,6 +44,9 @@ const microbeErrorMessages: Record<string, string> = {
   unsupported_mode: "Microbe import only supports the single-entry form.",
   missing_name: "Enter a microbe name.",
   missing_short_name: "Enter a microbe short name.",
+  missing_microbe_id: "Select a microbe to edit.",
+  microbe_not_found: "The selected microbe could not be found.",
+  microbe_exists: "Another microbe already uses that name.",
   invalid_game_mode: "Choose a valid game mode.",
   invalid_gram_type: "Choose a valid gram type.",
   invalid_star_rating: "Star rating must be a non-negative integer.",
@@ -49,10 +54,12 @@ const microbeErrorMessages: Record<string, string> = {
 };
 
 const microbeMessage = "microbe_import_success";
+const microbeUpdateMessage = "microbe_update_success";
 
 export default async function AdminPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const imported = params.imported ? Number(params.imported) : null;
+  const updated = params.updated ? Number(params.updated) : null;
   const skipped = params.skipped ? Number(params.skipped) : null;
   const errorMessage = params.error ? errorMessages[params.error] ?? params.error : null;
   const infoMessage = params.message === "import_success" ? "Username import completed." : null;
@@ -63,12 +70,17 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
     : null;
   const cardInfoMessage = params.cardsMessage === clueCardMessage ? "Clue card import completed." : null;
   const microbesImported = params.microbesImported ? Number(params.microbesImported) : null;
+  const microbesUpdated = params.microbesUpdated ? Number(params.microbesUpdated) : null;
   const microbesSkipped = params.microbesSkipped ? Number(params.microbesSkipped) : null;
   const microbeErrorMessage = params.microbesError
     ? microbeErrorMessages[params.microbesError] ?? params.microbesError
     : null;
   const microbeInfoMessage =
-    params.microbesMessage === microbeMessage ? "Microbe import completed." : null;
+    params.microbesMessage === microbeUpdateMessage
+      ? "Microbe update completed."
+      : params.microbesMessage === microbeMessage
+        ? "Microbe import completed."
+        : null;
 
   const clueCards = await prisma.clueCard.findMany({
     select: {
@@ -89,6 +101,33 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
     {} as Record<CardCategory, Array<{ id: string; label: string }>>
   );
 
+  const microbes = await prisma.microbe.findMany({
+    select: {
+      id: true,
+      name: true,
+      shortName: true,
+      gameMode: true,
+      gramType: true,
+      tags: true,
+      starRating: true,
+      answerImageUrl: true,
+      clues: {
+        select: {
+          clueCardId: true,
+          clueCard: {
+            select: {
+              category: true,
+            },
+          },
+        },
+        orderBy: {
+          sortOrder: "asc",
+        },
+      },
+    },
+    orderBy: [{ name: "asc" }],
+  });
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(15,23,42,0.08),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#eef2f7_100%)] px-6 py-10 text-slate-950">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-7xl flex-col gap-6">
@@ -107,10 +146,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Search
         />
         <MicrobeImportSection
           imported={microbesImported}
+          updated={microbesUpdated}
           skipped={microbesSkipped}
           errorMessage={microbeErrorMessage}
           infoMessage={microbeInfoMessage}
           clueCardsByCategory={clueCardsByCategory}
+          microbes={microbes}
         />
       </div>
     </main>

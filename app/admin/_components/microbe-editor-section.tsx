@@ -1,53 +1,117 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Beaker, Check, ChevronDown, ListFilter, Search, X } from "lucide-react";
-import { type CardCategory } from "@prisma/client";
+import { type CardCategory, type GameMode, type GramType, type MicrobeTag } from "@prisma/client";
 
 import { Button } from "@/components/ui/button";
 import { gameModeOptions, gramTypeOptions, microbeTagOptions } from "@/lib/microbes";
-import {
-  clueCardCategoryOptions,
-  getClueCardCategoryLabel,
-} from "@/lib/clue-cards";
+import { clueCardCategoryOptions, getClueCardCategoryLabel } from "@/lib/clue-cards";
 
 import { ImportStatusBanner } from "./import-status-banner";
 
+type MicrobeClueSelection = {
+  clueCardId: string;
+  clueCard: {
+    category: CardCategory;
+  };
+};
+
+type MicrobeEditorItem = {
+  id: string;
+  name: string;
+  shortName: string;
+  gameMode: GameMode;
+  gramType: GramType;
+  tags: MicrobeTag[];
+  starRating: number;
+  answerImageUrl: string;
+  clues: MicrobeClueSelection[];
+};
+
 type MicrobeImportSectionProps = {
   imported: number | null;
+  updated: number | null;
   skipped: number | null;
   errorMessage: string | null;
   infoMessage: string | null;
   clueCardsByCategory: Record<CardCategory, Array<{ id: string; label: string }>>;
+  microbes: MicrobeEditorItem[];
 };
+
+function createEmptyCategorySelection() {
+  return clueCardCategoryOptions.reduce(
+    (acc, categoryOption) => {
+      acc[categoryOption.value] = [];
+      return acc;
+    },
+    {} as Record<CardCategory, string[]>
+  );
+}
+
+function createEmptySearchState() {
+  return clueCardCategoryOptions.reduce(
+    (acc, categoryOption) => {
+      acc[categoryOption.value] = "";
+      return acc;
+    },
+    {} as Record<CardCategory, string>
+  );
+}
 
 export function MicrobeImportSection({
   imported,
+  updated,
   skipped,
   errorMessage,
   infoMessage,
   clueCardsByCategory,
+  microbes,
 }: MicrobeImportSectionProps) {
-  const [selectedClueCardIdsByCategory, setSelectedClueCardIdsByCategory] = useState<
-    Record<CardCategory, string[]>
-  >(() =>
-    clueCardCategoryOptions.reduce(
-      (acc, categoryOption) => {
-        acc[categoryOption.value] = [];
-        return acc;
-      },
-      {} as Record<CardCategory, string[]>
-    )
+  const [selectedMicrobeId, setSelectedMicrobeId] = useState("");
+  const selectedMicrobe = microbes.find((microbe) => microbe.id === selectedMicrobeId) ?? null;
+
+  const [name, setName] = useState("");
+  const [shortName, setShortName] = useState("");
+  const [gameMode, setGameMode] = useState("");
+  const [gramType, setGramType] = useState("");
+  const [starRating, setStarRating] = useState("1");
+  const [answerFilename, setAnswerFilename] = useState("");
+  const [selectedTags, setSelectedTags] = useState<MicrobeTag[]>([]);
+  const [selectedClueCardIdsByCategory, setSelectedClueCardIdsByCategory] = useState<Record<CardCategory, string[]>>(
+    createEmptyCategorySelection
   );
-  const [searchByCategory, setSearchByCategory] = useState<Record<CardCategory, string>>(() =>
-    clueCardCategoryOptions.reduce(
-      (acc, categoryOption) => {
-        acc[categoryOption.value] = "";
-        return acc;
-      },
-      {} as Record<CardCategory, string>
-    )
-  );
+  const [searchByCategory, setSearchByCategory] = useState<Record<CardCategory, string>>(createEmptySearchState);
+
+  useEffect(() => {
+    if (!selectedMicrobe) {
+      setName("");
+      setShortName("");
+      setGameMode("");
+      setGramType("");
+      setStarRating("1");
+      setAnswerFilename("");
+      setSelectedTags([]);
+      setSelectedClueCardIdsByCategory(createEmptyCategorySelection());
+      setSearchByCategory(createEmptySearchState());
+      return;
+    }
+
+    setName(selectedMicrobe.name);
+    setShortName(selectedMicrobe.shortName);
+    setGameMode(selectedMicrobe.gameMode);
+    setGramType(selectedMicrobe.gramType);
+    setStarRating(String(selectedMicrobe.starRating));
+    setAnswerFilename(selectedMicrobe.answerImageUrl.split("/").pop() ?? "");
+    setSelectedTags(selectedMicrobe.tags);
+    setSearchByCategory(createEmptySearchState());
+
+    const nextSelected = createEmptyCategorySelection();
+    for (const clue of selectedMicrobe.clues) {
+      nextSelected[clue.clueCard.category].push(clue.clueCardId);
+    }
+    setSelectedClueCardIdsByCategory(nextSelected);
+  }, [selectedMicrobe]);
 
   const totalSelectedCount = Object.values(selectedClueCardIdsByCategory).reduce(
     (total, selectedIds) => total + selectedIds.length,
@@ -56,10 +120,17 @@ export function MicrobeImportSection({
 
   const details =
     imported !== null && skipped !== null && !errorMessage
-      ? `Imported ${imported} microbes, skipped ${skipped}.`
+      ? `${updated !== null ? "Updated" : "Imported"} ${updated ?? imported} microbes, skipped ${skipped}.`
       : null;
 
   const exampleGameMode = gameModeOptions[0]?.slug ?? "bacteria";
+  const isEditMode = Boolean(selectedMicrobe);
+
+  const toggleTag = (tag: MicrobeTag) => {
+    setSelectedTags((current) =>
+      current.includes(tag) ? current.filter((currentTag) => currentTag !== tag) : [...current, tag]
+    );
+  };
 
   const toggleClueCard = (category: CardCategory, clueCardId: string) => {
     setSelectedClueCardIdsByCategory((current) => {
@@ -117,15 +188,13 @@ export function MicrobeImportSection({
       <article className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.26)] md:p-8">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-              Microbe import
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Microbe import</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-              Create a single microbe with clue-card associations
+              Create or edit a microbe
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Each microbe must link to clue cards that cover all <span className="font-medium text-slate-900">CardCategory</span> values.
-              Use the searchable category panels below to pick cards quickly, and the route will build the answer image path from <span className="font-medium text-slate-900">gameMode</span> plus the filename.
+              Select an existing microbe from the database to load its values, or leave the selector on new microbe to create a record.
+              The route will build the answer image path from <span className="font-medium text-slate-900">gameMode</span> plus the filename.
             </p>
           </div>
           <div className="rounded-2xl bg-slate-950 px-4 py-3 text-sm text-white">
@@ -170,25 +239,56 @@ export function MicrobeImportSection({
           )}
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <form
-            action="/api/admin/import-microbes"
-            method="post"
-            className="space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-4"
-          >
-            <input type="hidden" name="mode" value="single" />
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Single entry</p>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
-                Add one microbe and choose one or more clue cards from each category.
-              </p>
+        <div className="mt-6">
+          <form action="/api/admin/import-microbes" method="post" className="w-full space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            <input type="hidden" name="mode" value={isEditMode ? "edit" : "create"} />
+            {selectedMicrobe ? <input type="hidden" name="microbeId" value={selectedMicrobe.id} /> : null}
+
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{isEditMode ? "Edit microbe" : "Single entry"}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  {isEditMode
+                    ? "Update fields and clue-card associations for the selected microbe."
+                    : "Add one microbe and choose one or more clue cards from each category."}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedMicrobeId("")}
+                disabled={!isEditMode}
+                className="rounded-full px-3 text-slate-600"
+              >
+                New microbe
+              </Button>
             </div>
+
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-slate-700">Choose microbe to edit</span>
+              <select
+                value={selectedMicrobeId}
+                onChange={(event) => setSelectedMicrobeId(event.target.value)}
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+              >
+                <option value="">Create new microbe</option>
+                {microbes.map((microbe) => (
+                  <option key={microbe.id} value={microbe.id}>
+                    {microbe.name} ({microbe.shortName})
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs leading-5 text-slate-500">Loaded from the database. Editing replaces the existing clue rows.</span>
+            </label>
 
             <label className="block space-y-2">
               <span className="text-sm font-medium text-slate-700">Name</span>
               <input
                 type="text"
                 name="name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
                 placeholder="Staphylococcus aureus"
                 className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
               />
@@ -199,6 +299,8 @@ export function MicrobeImportSection({
               <input
                 type="text"
                 name="shortName"
+                value={shortName}
+                onChange={(event) => setShortName(event.target.value)}
                 placeholder="S. aureus"
                 className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
               />
@@ -209,7 +311,8 @@ export function MicrobeImportSection({
                 <span className="text-sm font-medium text-slate-700">Game mode</span>
                 <select
                   name="gameMode"
-                  defaultValue=""
+                  value={gameMode}
+                  onChange={(event) => setGameMode(event.target.value)}
                   className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
                 >
                   <option value="" disabled>
@@ -227,7 +330,8 @@ export function MicrobeImportSection({
                 <span className="text-sm font-medium text-slate-700">Gram type</span>
                 <select
                   name="gramType"
-                  defaultValue=""
+                  value={gramType}
+                  onChange={(event) => setGramType(event.target.value)}
                   className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
                 >
                   <option value="" disabled>
@@ -250,7 +354,8 @@ export function MicrobeImportSection({
                   min={0}
                   step={1}
                   name="starRating"
-                  defaultValue={1}
+                  value={starRating}
+                  onChange={(event) => setStarRating(event.target.value)}
                   className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
                 />
               </label>
@@ -260,6 +365,8 @@ export function MicrobeImportSection({
                 <input
                   type="text"
                   name="answerFilename"
+                  value={answerFilename}
+                  onChange={(event) => setAnswerFilename(event.target.value)}
                   placeholder="staphylococcus-aureus-answer.png"
                   className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
                 />
@@ -267,7 +374,9 @@ export function MicrobeImportSection({
             </div>
 
             <fieldset className="space-y-2">
-              <legend className="text-sm font-medium text-slate-700">Tags</legend>
+              <legend className="text-sm font-medium text-slate-700">
+                Tags <span className="ml-2 text-xs font-normal text-slate-500">{selectedTags.length} selected</span>
+              </legend>
               <details className="group overflow-hidden rounded-2xl border border-slate-200 bg-white">
                 <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm text-slate-700 transition hover:bg-slate-50">
                   <span>Select microbe tags</span>
@@ -276,23 +385,29 @@ export function MicrobeImportSection({
                   </span>
                 </summary>
                 <div className="space-y-2 border-t border-slate-200 p-3">
-                  {microbeTagOptions.map((tagOption) => (
-                    <label
-                      key={tagOption.value}
-                      className="flex items-start gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                    >
-                      <input
-                        type="checkbox"
-                        name="tags"
-                        value={tagOption.value}
-                        className="mt-0.5 size-4 rounded border-slate-300 text-slate-900"
-                      />
-                      <span className="min-w-0">
-                        <span className="block font-medium text-slate-900">{tagOption.label}</span>
-                        <span className="block text-xs text-slate-500">{tagOption.value}</span>
-                      </span>
-                    </label>
-                  ))}
+                  {microbeTagOptions.map((tagOption) => {
+                    const checked = selectedTags.includes(tagOption.value);
+
+                    return (
+                      <label
+                        key={tagOption.value}
+                        className="flex items-start gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                      >
+                        <input
+                          type="checkbox"
+                          name="tags"
+                          value={tagOption.value}
+                          checked={checked}
+                          onChange={() => toggleTag(tagOption.value)}
+                          className="mt-0.5 size-4 rounded border-slate-300 text-slate-900"
+                        />
+                        <span className="min-w-0">
+                          <span className="block font-medium text-slate-900">{tagOption.label}</span>
+                          <span className="block text-xs text-slate-500">{tagOption.value}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
               </details>
             </fieldset>
@@ -319,11 +434,10 @@ export function MicrobeImportSection({
                 });
                 const visibleCardIds = filteredOptions.map((option) => option.id);
                 const visibleSelectedCount = filteredOptions.filter((option) => selectedIds.includes(option.id)).length;
-                const allVisibleSelected =
-                  filteredOptions.length > 0 && visibleSelectedCount === filteredOptions.length;
+                const allVisibleSelected = filteredOptions.length > 0 && visibleSelectedCount === filteredOptions.length;
 
                 return (
-                  <details key={categoryOption.value} className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                  <details key={categoryOption.value} className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" open>
                     {selectedIds.map((selectedId) => (
                       <input
                         key={`selected-${categoryOption.value}-${selectedId}`}
@@ -442,7 +556,7 @@ export function MicrobeImportSection({
             </div>
 
             <Button type="submit" size="lg" className="w-full rounded-2xl px-6">
-              Add microbe
+              {isEditMode ? "Save changes" : "Add microbe"}
             </Button>
           </form>
         </div>
@@ -478,9 +592,7 @@ export function MicrobeImportSection({
             <p className="rounded-2xl bg-slate-50 px-4 py-3 font-mono text-xs text-slate-900">
               {`cards/answers/${exampleGameMode}/staphylococcus-aureus-answer.png`}
             </p>
-            <p>
-              Supported tags: {microbeTagOptions.map((option) => option.value).join(", ")}
-            </p>
+            <p>Supported tags: {microbeTagOptions.map((option) => option.value).join(", ")}</p>
           </div>
         </section>
       </aside>
