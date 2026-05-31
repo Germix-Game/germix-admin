@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
 
     return wantsJson(request)
       ? NextResponse.json(response, { status: 400 })
-      : NextResponse.redirect(new URL("/admin?microbesError=unsupported_mode", request.url), {
+      : NextResponse.redirect(new URL("/admin/microbes?microbesError=unsupported_mode", request.url), {
           status: 303,
         });
   }
@@ -281,7 +281,7 @@ export async function POST(request: NextRequest) {
 
     return wantsJson(request)
       ? NextResponse.json(response, { status: 400 })
-      : NextResponse.redirect(new URL(`/admin?microbesError=${response.errors[0].reason}`, request.url), {
+      : NextResponse.redirect(new URL(`/admin/microbes?microbesError=${response.errors[0].reason}`, request.url), {
           status: 303,
         });
   }
@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
 
       return wantsJson(request)
         ? NextResponse.json(response, { status: 400 })
-        : NextResponse.redirect(new URL("/admin?microbesError=missing_microbe_id", request.url), {
+        : NextResponse.redirect(new URL("/admin/microbes?microbesError=missing_microbe_id", request.url), {
             status: 303,
           });
     }
@@ -319,7 +319,7 @@ export async function POST(request: NextRequest) {
 
       return wantsJson(request)
         ? NextResponse.json(response, { status: 404 })
-        : NextResponse.redirect(new URL("/admin?microbesError=microbe_not_found", request.url), {
+        : NextResponse.redirect(new URL("/admin/microbes?microbesError=microbe_not_found", request.url), {
             status: 303,
           });
     }
@@ -339,7 +339,7 @@ export async function POST(request: NextRequest) {
 
       return wantsJson(request)
         ? NextResponse.json(response, { status: 400 })
-        : NextResponse.redirect(new URL(`/admin?microbesError=microbe_exists`, request.url), {
+        : NextResponse.redirect(new URL(`/admin/microbes?microbesError=microbe_exists`, request.url), {
             status: 303,
           });
     }
@@ -355,7 +355,7 @@ export async function POST(request: NextRequest) {
 
       return wantsJson(request)
         ? NextResponse.json(response, { status: 400 })
-        : NextResponse.redirect(new URL(`/admin?microbesError=${coverage.reason}`, request.url), {
+        : NextResponse.redirect(new URL(`/admin/microbes?microbesError=${coverage.reason}`, request.url), {
             status: 303,
           });
     }
@@ -391,7 +391,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 200 });
     }
 
-    const redirectUrl = new URL("/admin", request.url);
+    const redirectUrl = new URL("/admin/microbes", request.url);
     redirectUrl.searchParams.set("microbesUpdated", String(response.updated));
     redirectUrl.searchParams.set("microbesMessage", "microbe_update_success");
     return NextResponse.redirect(redirectUrl, { status: 303 });
@@ -409,7 +409,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response, { status: response.errors.length > 0 ? 400 : 200 });
   }
 
-  const redirectUrl = new URL("/admin", request.url);
+  const redirectUrl = new URL("/admin/microbes", request.url);
   redirectUrl.searchParams.set("microbesImported", String(response.imported));
   redirectUrl.searchParams.set("microbesUpdated", String(response.updated));
   redirectUrl.searchParams.set("microbesSkipped", String(response.skipped));

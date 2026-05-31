@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
     const response: ImportResult = { imported: 0, skipped: 0, errors: [{ line: 0, reason: "missing username or CSV file" }] };
     return wantsJson(request)
       ? NextResponse.json(response, { status: 400 })
-      : NextResponse.redirect(new URL("/admin?error=missing_input", request.url), { status: 303 });
+      : NextResponse.redirect(new URL("/admin/users?error=missing_input", request.url), { status: 303 });
   }
 
   let parsed: { usernames: string[]; errors: ImportUsernameError[] };
@@ -168,7 +168,10 @@ export async function POST(request: NextRequest) {
     return wantsJson(request)
       ? NextResponse.json(response, { status: 400 })
       : NextResponse.redirect(
-          new URL(hasManualUsername ? "/admin?error=invalid_username" : "/admin?error=invalid_csv", request.url),
+          new URL(
+            hasManualUsername ? "/admin/users?error=invalid_username" : "/admin/users?error=invalid_csv",
+            request.url
+          ),
           { status: 303 }
         );
   }
@@ -185,7 +188,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   }
 
-  const redirectUrl = new URL("/admin", request.url);
+  const redirectUrl = new URL("/admin/users", request.url);
   redirectUrl.searchParams.set("imported", String(response.imported));
   redirectUrl.searchParams.set("skipped", String(response.skipped));
   if (response.errors.length > 0) {

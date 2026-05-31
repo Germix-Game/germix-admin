@@ -202,21 +202,21 @@ export async function POST(request: NextRequest) {
       const response: ImportResult = { imported: 0, skipped: 0, errors: [{ line: 0, reason: "invalid category" }] };
       return wantsJson(request)
         ? NextResponse.json(response, { status: 400 })
-        : NextResponse.redirect(new URL("/admin?cardsError=invalid_category", request.url), { status: 303 });
+        : NextResponse.redirect(new URL("/admin/clue-cards?cardsError=invalid_category", request.url), { status: 303 });
     }
 
     if (!label) {
       const response: ImportResult = { imported: 0, skipped: 0, errors: [{ line: 0, reason: "missing label" }] };
       return wantsJson(request)
         ? NextResponse.json(response, { status: 400 })
-        : NextResponse.redirect(new URL("/admin?cardsError=invalid_label", request.url), { status: 303 });
+        : NextResponse.redirect(new URL("/admin/clue-cards?cardsError=invalid_label", request.url), { status: 303 });
     }
 
     if (!filename) {
       const response: ImportResult = { imported: 0, skipped: 0, errors: [{ line: 0, reason: "missing filename" }] };
       return wantsJson(request)
         ? NextResponse.json(response, { status: 400 })
-        : NextResponse.redirect(new URL("/admin?cardsError=missing_filename", request.url), { status: 303 });
+        : NextResponse.redirect(new URL("/admin/clue-cards?cardsError=missing_filename", request.url), { status: 303 });
     }
 
     const imageUrl = buildClueCardImagePath(category, normalizePngFileName(filename) || buildClueCardFileName(label));
@@ -230,7 +230,10 @@ export async function POST(request: NextRequest) {
       return wantsJson(request)
         ? NextResponse.json(response)
         : NextResponse.redirect(
-            new URL("/admin?cardsImported=0&cardsSkipped=1&cardsMessage=clue_card_import_success", request.url),
+            new URL(
+              "/admin/clue-cards?cardsImported=0&cardsSkipped=1&cardsMessage=clue_card_import_success",
+              request.url
+            ),
             { status: 303 }
           );
     }
@@ -243,7 +246,10 @@ export async function POST(request: NextRequest) {
     return wantsJson(request)
       ? NextResponse.json(response)
       : NextResponse.redirect(
-          new URL("/admin?cardsImported=1&cardsSkipped=0&cardsMessage=clue_card_import_success", request.url),
+          new URL(
+            "/admin/clue-cards?cardsImported=1&cardsSkipped=0&cardsMessage=clue_card_import_success",
+            request.url
+          ),
           { status: 303 }
         );
   }
@@ -255,7 +261,7 @@ export async function POST(request: NextRequest) {
       const response: ImportResult = { imported: 0, skipped: 0, errors: [{ line: 0, reason: "missing csv file" }] };
       return wantsJson(request)
         ? NextResponse.json(response, { status: 400 })
-        : NextResponse.redirect(new URL("/admin?cardsError=missing_file", request.url), { status: 303 });
+        : NextResponse.redirect(new URL("/admin/clue-cards?cardsError=missing_file", request.url), { status: 303 });
     }
 
     const fileText = await uploadedFile.text();
@@ -265,7 +271,7 @@ export async function POST(request: NextRequest) {
       const response: ImportResult = { imported: 0, skipped: 0, errors: parsed.errors };
       return wantsJson(request)
         ? NextResponse.json(response, { status: 400 })
-        : NextResponse.redirect(new URL("/admin?cardsError=invalid_csv", request.url), { status: 303 });
+        : NextResponse.redirect(new URL("/admin/clue-cards?cardsError=invalid_csv", request.url), { status: 303 });
     }
 
     const { importedCards, skipped } = await importClueCards(parsed.cards);
@@ -279,7 +285,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: parsed.errors.length > 0 ? 207 : 200 });
     }
 
-    const redirectUrl = new URL("/admin", request.url);
+    const redirectUrl = new URL("/admin/clue-cards", request.url);
     redirectUrl.searchParams.set("cardsImported", String(response.imported));
     redirectUrl.searchParams.set("cardsSkipped", String(response.skipped));
 
@@ -295,5 +301,5 @@ export async function POST(request: NextRequest) {
   const response: ImportResult = { imported: 0, skipped: 0, errors: [{ line: 0, reason: "unsupported import mode" }] };
   return wantsJson(request)
     ? NextResponse.json(response, { status: 400 })
-    : NextResponse.redirect(new URL("/admin?cardsError=invalid_input", request.url), { status: 303 });
+    : NextResponse.redirect(new URL("/admin/clue-cards?cardsError=invalid_input", request.url), { status: 303 });
 }
