@@ -1,3 +1,33 @@
+## Admin surface mapping
+
+This section maps core game requirements to admin needs so engineering and research share a clear implementation plan.
+- **Whitelist import (game §4.1 / admin PRD §8.1)**
+  - Admin needs: bulk CSV import, idempotent upsert into `ApprovedUsername`, line-level error reporting.
+  - Game behavior: signup endpoint validates `ApprovedUsername` before creating Supabase user.
+- **Config and date gates (game §1 / PRD §3)**
+  - Admin needs: `PUT /api/admin/config/:key` to update unlock and posttest dates.
+  - Game behavior: read `Config` server-side to gate parasite mode and posttest timing.
+- **Export for analysis (game §5 / PRD §8.2)**
+  - Admin needs: deterministic CSV export (sessions, scores, posttests) with stable column names.
+  - Suggested export columns: `session_id, player_id, username, started_at, ended_at, round_index, microbe_id, microbe_name, cards_opened, correct, round_score, session_score, posttest_id, posttest_score`
+- **Seeded game content (cards / microbes)**
+  - Admin/dev needs: `prisma/seed.ts` to ingest CSV and register `ClueCard.imageUrl` built from Supabase Storage.
+
+## Data retention & PII
+- Research guidance: exports contain usernames and should be treated as research PII until anonymized by analysts. Ensure TLS for downloads and short-lived storage for exported files.
+- Retention: Follow institutional policy; consider a separate export-only schema for anonymized datasets.
+
+## Admin test cases tied to game scenarios
+- Scenario: researcher uploads whitelist CSV with 500 rows, including 10 duplicates and 3 malformed lines. Expected:
+  - DB contains 490 new `ApprovedUsername` rows (if none pre-existed).
+  - Response `{ imported: 490, skipped: 10, errors: [{ line: 123, reason: 'invalid characters' }, ...] }`.
+- Scenario: researcher sets `posttest_unlock` to `2026-08-01T00:00:00Z` via admin UI. Expected:
+  - Game recognizes the new date immediately for server-side gating; UI shows updated value and an audit log entry recorded.
+
+## Developer notes
+- Export implementation should favor streaming. Use a DB cursor or chunked queries to avoid large memory consumption.
+- Keep export schema backward-compatible. Add a `v` query param (e.g. `?v=2`) for incompatible shape changes.
+- For the seed pipeline, store sample CSVs in `prisma/seed-data/` and include a small test harness that asserts `n` microbes and `m` cards were upserted.
 # Germix — Project Requirements Document
 
 **Version:** 0.9  
