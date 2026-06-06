@@ -11,6 +11,8 @@ export const clueCardCategoryOptions: ClueCardCategoryOption[] = [
   { value: CardCategory.VIRULENCE_FACTOR, label: "Virulence factor", slug: "virulence-factor" },
   { value: CardCategory.LAB_CHARACTERISTIC, label: "Lab characteristic", slug: "lab-characteristic" },
   { value: CardCategory.SPECIAL_TRAIT, label: "Special trait", slug: "special-trait" },
+  { value: CardCategory.TRANSMISSION, label: "Transmission", slug: "transmission" },
+  { value: CardCategory.MORPHOLOGY, label: "Morphology", slug: "morphology" },
   {
     value: CardCategory.CLINICAL_MANIFESTATION,
     label: "Clinical manifestation",
@@ -21,7 +23,27 @@ export const clueCardCategoryOptions: ClueCardCategoryOption[] = [
 const categoryLookup = new Map(clueCardCategoryOptions.map((option) => [option.value, option]));
 
 export function isClueCardCategory(value: string): value is CardCategory {
-  return categoryLookup.has(value as CardCategory);
+  return parseClueCardCategory(value) !== null;
+}
+
+export function parseClueCardCategory(value: string): CardCategory | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+
+  // direct enum match (e.g., "TRANSMISSION")
+  if (categoryLookup.has(raw as CardCategory)) {
+    return raw as CardCategory;
+  }
+
+  const lower = raw.toLowerCase();
+
+  for (const [key, option] of categoryLookup.entries()) {
+    if (option.slug === lower) return key;
+    if (option.label.toLowerCase() === lower) return key;
+    if ((key as string).toLowerCase() === lower) return key;
+  }
+
+  return null;
 }
 
 export function getClueCardCategorySlug(category: CardCategory) {

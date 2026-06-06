@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, Search, X } from "lucide-react";
-import Link from "next/link";
+import { Beaker, Check, ChevronDown, ListFilter, Search, X } from "lucide-react";
 import { type CardCategory, type GameMode, type GramType, type MicrobeTag } from "@prisma/client";
 
 import { Button } from "@/components/ui/button";
@@ -84,7 +83,6 @@ export function MicrobeImportSection({
   );
   const [searchByCategory, setSearchByCategory] = useState<Record<CardCategory, string>>(createEmptySearchState);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!selectedMicrobe) {
       setName("");
@@ -114,7 +112,6 @@ export function MicrobeImportSection({
     }
     setSelectedClueCardIdsByCategory(nextSelected);
   }, [selectedMicrobe]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const totalSelectedCount = Object.values(selectedClueCardIdsByCategory).reduce(
     (total, selectedIds) => total + selectedIds.length,
@@ -126,6 +123,7 @@ export function MicrobeImportSection({
       ? `${updated !== null ? "Updated" : "Imported"} ${updated ?? imported} microbes, skipped ${skipped}.`
       : null;
 
+  const exampleGameMode = gameModeOptions[0]?.slug ?? "bacteria";
   const isEditMode = Boolean(selectedMicrobe);
 
   const toggleTag = (tag: MicrobeTag) => {
@@ -186,120 +184,127 @@ export function MicrobeImportSection({
   );
 
   return (
-    <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.22)] md:p-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-col gap-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Microbes</p>
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Create or edit a microbe</h2>
-          <p className="text-sm leading-6 text-slate-600">Pick a record to edit or create a new one.</p>
-        </div>
-
-        <Button asChild variant="outline" size="lg" className="rounded-2xl px-5">
-          <Link href="/admin">
-            <ArrowLeft className="size-4" />
-            Back to home
-          </Link>
-        </Button>
-      </div>
-
-      <ImportStatusBanner errorMessage={errorMessage} infoMessage={infoMessage} details={details} />
-
-      <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <section className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
+      <article className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.26)] md:p-8">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-slate-900">Selected clue cards</p>
-            <p className="mt-1 text-sm leading-6 text-slate-600">Use at least one card from each category.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Microbe import</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+              Create or edit a microbe
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Select an existing microbe from the database to load its values, or leave the selector on new microbe to create a record.
+              The route will build the answer image path from <span className="font-medium text-slate-900">gameMode</span> plus the filename.
+            </p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-            <span className="font-medium text-slate-950">{totalSelectedCount}</span> selected
+          <div className="rounded-2xl bg-slate-950 px-4 py-3 text-sm text-white">
+            <p className="font-medium">Answer path</p>
+            <p className="mt-1 text-slate-300">cards/answers/&lt;gameMode&gt;/&lt;filename&gt;</p>
           </div>
         </div>
 
-        {selectedCards.length > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {selectedCards.map((selectedCard) => (
-              <button
-                key={`${selectedCard.category}-${selectedCard.clueCardId}`}
-                type="button"
-                onClick={() => toggleClueCard(selectedCard.category, selectedCard.clueCardId)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
-              >
-                <span className="max-w-[14rem] truncate">{selectedCard.label}</span>
-                <X className="size-3.5" />
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm leading-6 text-slate-500">
-            No clue cards selected.
-          </div>
-        )}
-      </div>
+        <ImportStatusBanner errorMessage={errorMessage} infoMessage={infoMessage} details={details} />
 
-      <div className="mt-6">
-        <form action="/api/admin/import-microbes" method="post" className="w-full space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-          <input type="hidden" name="mode" value={isEditMode ? "edit" : "create"} />
-          {selectedMicrobe ? <input type="hidden" name="microbeId" value={selectedMicrobe.id} /> : null}
-
-          <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-slate-900">{isEditMode ? "Edit microbe" : "New microbe"}</p>
+              <p className="text-sm font-semibold text-slate-900">Selected clue cards</p>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                {isEditMode ? "Update the selected record." : "Create one record at a time."}
+                Pick at least one clue card from each category. Filtering only narrows the list; it does not clear your current selections.
               </p>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedMicrobeId("")}
-              disabled={!isEditMode}
-              className="rounded-full px-3 text-slate-600"
-            >
-              New
-            </Button>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+              <span className="font-medium text-slate-950">{totalSelectedCount}</span> selected
+            </div>
           </div>
 
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-slate-700">Choose microbe to edit</span>
-            <select
-              value={selectedMicrobeId}
-              onChange={(event) => setSelectedMicrobeId(event.target.value)}
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
-            >
-              <option value="">Create new microbe</option>
-              {microbes.map((microbe) => (
-                <option key={microbe.id} value={microbe.id}>
-                  {microbe.name} ({microbe.shortName})
-                </option>
+          {selectedCards.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {selectedCards.map((selectedCard) => (
+                <button
+                  key={`${selectedCard.category}-${selectedCard.clueCardId}`}
+                  type="button"
+                  onClick={() => toggleClueCard(selectedCard.category, selectedCard.clueCardId)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+                >
+                  <span className="max-w-[14rem] truncate">{selectedCard.label}</span>
+                  <X className="size-3.5" />
+                </button>
               ))}
-            </select>
-            <span className="text-xs leading-5 text-slate-500">Choose a microbe to load it into the form.</span>
-          </label>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm leading-6 text-slate-500">
+              No clue cards selected yet. Open a category panel and search or click to add cards.
+            </div>
+          )}
+        </div>
 
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-slate-700">Name</span>
-            <input
-              type="text"
-              name="name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Staphylococcus aureus"
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
-            />
-          </label>
+        <div className="mt-6">
+          <form action="/api/admin/import-microbes" method="post" className="w-full space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            <input type="hidden" name="mode" value={isEditMode ? "edit" : "create"} />
+            {selectedMicrobe ? <input type="hidden" name="microbeId" value={selectedMicrobe.id} /> : null}
 
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-slate-700">Short name</span>
-            <input
-              type="text"
-              name="shortName"
-              value={shortName}
-              onChange={(event) => setShortName(event.target.value)}
-              placeholder="S. aureus"
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
-            />
-          </label>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">{isEditMode ? "Edit microbe" : "Single entry"}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  {isEditMode
+                    ? "Update fields and clue-card associations for the selected microbe."
+                    : "Add one microbe and choose one or more clue cards from each category."}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedMicrobeId("")}
+                disabled={!isEditMode}
+                className="rounded-full px-3 text-slate-600"
+              >
+                New microbe
+              </Button>
+            </div>
+
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-slate-700">Choose microbe to edit</span>
+              <select
+                value={selectedMicrobeId}
+                onChange={(event) => setSelectedMicrobeId(event.target.value)}
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+              >
+                <option value="">Create new microbe</option>
+                {microbes.map((microbe) => (
+                  <option key={microbe.id} value={microbe.id}>
+                    {microbe.name} ({microbe.shortName})
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs leading-5 text-slate-500">Loaded from the database. Editing replaces the existing clue rows.</span>
+            </label>
+
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-slate-700">Name</span>
+              <input
+                type="text"
+                name="name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Staphylococcus aureus"
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+              />
+            </label>
+
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-slate-700">Short name</span>
+              <input
+                type="text"
+                name="shortName"
+                value={shortName}
+                onChange={(event) => setShortName(event.target.value)}
+                placeholder="S. aureus"
+                className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+              />
+            </label>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block space-y-2">
@@ -409,7 +414,9 @@ export function MicrobeImportSection({
 
             <div className="space-y-3">
               <p className="text-sm font-medium text-slate-700">Clue cards by category</p>
-              <p className="text-xs leading-5 text-slate-500">Filter, select, then save.</p>
+              <p className="text-xs leading-5 text-slate-500">
+                Use the filter field inside each panel to narrow the list, then bulk-select the visible cards or clear a category in one click.
+              </p>
               {clueCardCategoryOptions.map((categoryOption) => {
                 const options = clueCardsByCategory[categoryOption.value] ?? [];
                 const selectedIds = selectedClueCardIdsByCategory[categoryOption.value];
@@ -554,7 +561,41 @@ export function MicrobeImportSection({
           </form>
         </div>
 
-        <p className="mt-4 text-sm leading-6 text-slate-500">Duplicate microbe names are skipped automatically.</p>
+        <div className="mt-4 text-sm leading-6 text-slate-500">
+          The system validates that each microbe includes at least one clue card from every category before saving. CSV uploads are no longer supported for microbe imports.
+        </div>
+      </article>
+
+      <aside className="space-y-6">
+        <section className="rounded-[1.75rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-[0_22px_50px_-30px_rgba(15,23,42,0.9)]">
+          <div className="flex items-center gap-2 text-sm text-slate-300">
+            <Beaker className="size-4" />
+            Microbe rules
+          </div>
+          <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
+            <li>• Every microbe must include at least one clue card from each category, and can include more than one per category.</li>
+            <li>• Use the search field inside each category panel to filter cards by label or id.</li>
+            <li>• The visible-card bulk action lets you select or unselect the current filtered results in one click.</li>
+            <li>• The answer filename should be only a filename; the route builds the full answer path.</li>
+            <li>• Selected cards appear as removable chips above the form for quick review.</li>
+            <li>• Duplicate microbe names are skipped automatically.</li>
+          </ul>
+        </section>
+
+        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.22)]">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+            <ListFilter className="size-4" />
+            Example answer path
+          </div>
+          <div className="mt-4 space-y-3 text-sm leading-6 text-slate-700">
+            <p>Generated from game mode and filename:</p>
+            <p className="rounded-2xl bg-slate-50 px-4 py-3 font-mono text-xs text-slate-900">
+              {`cards/answers/${exampleGameMode}/staphylococcus-aureus-answer.png`}
+            </p>
+            <p>Supported tags: {microbeTagOptions.map((option) => option.value).join(", ")}</p>
+          </div>
+        </section>
+      </aside>
     </section>
   );
 }

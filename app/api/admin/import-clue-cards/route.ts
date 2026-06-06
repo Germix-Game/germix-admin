@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import {
   buildClueCardFileName,
   buildClueCardImagePath,
-  isClueCardCategory,
+  parseClueCardCategory,
   slugifyClueCardSegment,
 } from "@/lib/clue-cards";
 
@@ -119,10 +119,11 @@ function parseCsv(fileText: string) {
     const rawCategory = cells[categoryIndex] ?? "";
     const rawLabel = cells[labelIndex] ?? "";
     const rawFileName = filenameIndex >= 0 ? cells[filenameIndex] ?? "" : "";
-    const category = rawCategory.trim();
+    const categoryInput = String(rawCategory ?? "").trim();
+    const parsedCategory = parseClueCardCategory(categoryInput);
     const label = rawLabel.trim();
 
-    if (!isClueCardCategory(category)) {
+    if (!parsedCategory) {
       errors.push({ line: lineIndex + 1, reason: `invalid category \"${rawCategory.trim()}\"` });
       continue;
     }
@@ -139,16 +140,16 @@ function parseCsv(fileText: string) {
       continue;
     }
 
-    const dedupeKey = `${category}:${label}:${fileName}`;
+    const dedupeKey = `${parsedCategory}:${label}:${fileName}`;
     if (seen.has(dedupeKey)) {
       continue;
     }
 
     seen.add(dedupeKey);
     cards.push({
-      category,
+      category: parsedCategory,
       label,
-      imageUrl: buildClueCardImagePath(category, fileName),
+      imageUrl: buildClueCardImagePath(parsedCategory, fileName),
     });
   }
 
@@ -195,10 +196,11 @@ export async function POST(request: NextRequest) {
 
   if (mode === "single") {
     const category = String(formData.get("category") ?? "").trim();
+    const parsedCategory = parseClueCardCategory(category);
     const label = String(formData.get("label") ?? "").trim();
     const filename = String(formData.get("filename") ?? "").trim();
 
-    if (!isClueCardCategory(category)) {
+    if (!parsedCategory) {
       const response: ImportResult = { imported: 0, skipped: 0, errors: [{ line: 0, reason: "invalid category" }] };
       return wantsJson(request)
         ? NextResponse.json(response, { status: 400 })
@@ -219,9 +221,9 @@ export async function POST(request: NextRequest) {
         : NextResponse.redirect(new URL("/admin/clue-cards?cardsError=missing_filename", request.url), { status: 303 });
     }
 
-    const imageUrl = buildClueCardImagePath(category, normalizePngFileName(filename) || buildClueCardFileName(label));
+    const imageUrl = buildClueCardImagePath(parsedCategory, normalizePngFileName(filename) || buildClueCardFileName(label));
     const existingCard = await prisma.clueCard.findFirst({
-      where: { category, label, imageUrl },
+      where: { category: parsedCategory, label, imageUrl },
       select: { id: true },
     });
 
@@ -239,7 +241,7 @@ export async function POST(request: NextRequest) {
     }
 
     await prisma.clueCard.create({
-      data: { category, label, imageUrl },
+      data: { category: parsedCategory, label, imageUrl },
     });
 
     const response: ImportResult = { imported: 1, skipped: 0, errors: [] };
