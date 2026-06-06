@@ -6,7 +6,7 @@ This document translates the PRD into prioritized work items, API contracts, and
 
 1. Import usernames (critical)
 	- `POST /api/admin/import-usernames`
-	- Acceptance: idempotent upsert, returns `{ imported, skipped, errors }`, supports CSV with header `username`.
+	- Acceptance: creates Supabase Auth users with fake emails, returns `{ imported, skipped, errors }`, supports single add and CSV with `username,password`.
 2. Export CSV (critical)
 	- `GET /api/admin/export?format=csv&v=1&from=&to=`
 	- Acceptance: streams canonical CSV columns; preview available in UI; audit log entry created.
@@ -22,10 +22,10 @@ This document translates the PRD into prioritized work items, API contracts, and
 ## API contracts (examples)
 
 POST /api/admin/import-usernames
-- Request: multipart/form-data file=`approved.csv`
+- Request: multipart/form-data file=`approved.csv` or form fields `username` and `password`
 - Response 200:
 ```json
-{ "imported": 123, "skipped": 2, "errors": [{ "line": 42, "reason": "missing username" }] }
+{ "imported": 123, "skipped": 2, "errors": [{ "line": 42, "reason": "missing username or password" }] }
 ```
 
 GET /api/admin/export?format=csv&v=1&from=2026-05-01&to=2026-05-24
@@ -42,6 +42,7 @@ PUT /api/admin/config/:key
 
 - Follow existing error envelope: `{ error: { code, message, details[] } }`.
 - Import: report per-row errors, reject file if header missing.
+- Import: support username/password onboarding for both single add and CSV imports, reject file if `username` or `password` header is missing.
 - Export: return 400 for invalid date range, 403 for missing/invalid token.
 
 ## Acceptance tests (concrete)
@@ -58,7 +59,7 @@ PUT /api/admin/config/:key
 
 ## Files to add / update
 
-- `src/app/api/admin/import-usernames/route.ts`
+- `app/api/admin/import-usernames/route.ts`
 - `src/app/api/admin/export/route.ts`
 - `src/app/api/admin/config/[key]/route.ts`
 - `src/app/admin/page.tsx` (minimal UI)

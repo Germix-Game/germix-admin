@@ -21,7 +21,8 @@ export function ImportStatusBanner({ errorMessage, infoMessage, details }: Impor
         <span className="mt-0.5">{errorMessage ? "!" : "✓"}</span>
         <div>
           <p>{errorMessage ?? infoMessage}</p>
-          {details && !errorMessage && <p className="mt-1 text-xs opacity-80">{details}</p>}
+          {/* {details && !errorMessage && <p className="mt-1 text-xs opacity-80">{details}</p>} */}
+          {details && <p className="mt-1 text-xs opacity-80">{details}</p>}
         </div>
       </div>
     </div>

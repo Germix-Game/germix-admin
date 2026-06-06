@@ -54,10 +54,11 @@ Admin import flow (compact mermaid):
 ```mermaid
 flowchart TD
   A[Admin uploads CSV] -->|POST| B[/api/admin/import-usernames]
-  B --> C{Validate CSV}
-  C -->|ok| D[Upsert ApprovedUsername rows]
-  C -->|errors| E[Return errors with line numbers]
-  D --> F[Return { imported, skipped, errors }]
+  B --> C{Validate username and password}
+  C -->|ok| D[Create Supabase Auth user with fake email]
+  D --> E[Insert ApprovedUsername row]
+  C -->|errors| F[Return errors with line numbers]
+  E --> G[Return { imported, skipped, errors }]
 ```
 ```
 
@@ -71,6 +72,7 @@ flowchart TD
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` — server-only, used by the admin import route to create Auth users.
 
 ## Session & security notes
 
