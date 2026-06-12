@@ -42,6 +42,10 @@ type ParsedMicrobe = {
 };
 
 const requiredCardCategories = new Set<CardCategory>(Object.values(CardCategory));
+requiredCardCategories.delete(CardCategory.TRANSMISSION); 
+requiredCardCategories.delete(CardCategory.MORPHOLOGY); 
+requiredCardCategories.delete(CardCategory.GRAM_STAIN); 
+requiredCardCategories.delete(CardCategory.VIRULENCE_FACTOR); 
 
 function wantsJson(request: NextRequest) {
   const accept = request.headers.get("accept") ?? "";

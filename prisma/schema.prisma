@@ -90,7 +90,7 @@ model Score {
   player            Player      @relation(fields: [playerId], references: [id])
   session           GameSession @relation(fields: [sessionId], references: [id])
 
-  @@unique([sessionId, roundNumber])
+  @@index([sessionId, roundNumber])
   @@index([playerId, createdAt(sort: Desc)])
   @@index([microbeId])
 }
@@ -184,6 +184,9 @@ enum GramType {
   NEGATIVE
   ACID_FAST
   NONE
+  PROTOZOA
+  PLATYHEMINTH
+  NEMATODE
 }
 
 enum CardCategory {
