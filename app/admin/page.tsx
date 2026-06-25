@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Database, FileText, Users } from "lucide-react";
+import { ArrowRight, Database, FileText, Users, MessageCircleQuestionMark } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -22,6 +22,12 @@ const quickActions = [
     title: "Microbes",
     text: "Create or edit microbes and assign clue cards.",
   },
+  {
+    href: "/admin/questions",
+    icon: MessageCircleQuestionMark,
+    title: "Questions",
+    text: "Create or edit posttest questions.",
+  }
 ];
 
 export default function AdminHomePage() {

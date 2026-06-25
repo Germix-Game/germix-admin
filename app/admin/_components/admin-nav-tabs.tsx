@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Database, FileText, House, Users } from "lucide-react";
+import { Database, FileText, House, Users, MessageCircleQuestionMark } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +11,7 @@ const navItems = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/clue-cards", label: "Clue cards", icon: FileText },
   { href: "/admin/microbes", label: "Microbes", icon: Database },
+  { href: "/admin/questions", label: "Questions", icon: MessageCircleQuestionMark },
 ];
 
 export function AdminNavTabs() {
