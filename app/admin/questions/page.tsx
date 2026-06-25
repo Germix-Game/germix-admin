@@ -1,5 +1,6 @@
 import { PostTestSection } from "../_components/posttest-section";
-import { PostTestPeriod, type PostTestQuestion } from "../_types";
+import { PostTestPeriod, type PostTestQuestion, AnswerOption } from "../_types";
+import { prisma } from "@/lib/prisma";
 
 type SearchParams = Promise<{
   period?: string;
@@ -22,9 +23,21 @@ const errorMessages: Record<string, string> = {
 };
 
 async function getQuestions(): Promise<PostTestQuestion[]> {
-  // Replace with your actual db call, e.g.:
-  // return prisma.postTestQuestion.findMany({ orderBy: [{ period: "asc" }, { sortOrder: "asc" }] });
-  return [];
+  const questions = await prisma.postTestQuestion.findMany({
+    orderBy: [
+      { period: "asc" },
+      { sortOrder: "asc" },
+    ],
+  });
+
+  return questions.map((q) => ({
+    id: q.id,
+    period: q.period as PostTestPeriod,
+    body: q.body,
+    options: q.options as [string, string, string, string],
+    correctOption: q.correctOption as AnswerOption,
+    sortOrder: q.sortOrder,
+  }));
 }
 
 export default async function PostTestPage({ searchParams }: { searchParams: SearchParams }) {
