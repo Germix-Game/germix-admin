@@ -2,6 +2,27 @@ import { PostTestSection } from "../_components/posttest-section";
 import { PostTestPeriod, type PostTestQuestion, AnswerOption } from "../_types";
 import { prisma } from "@/lib/prisma";
 
+async function getPostTestEnabled() {
+  const config = await prisma.config.findUnique({
+    where: {
+      key: "posttest_enabled",
+    },
+  });
+
+  return config?.value === "true";
+}
+
+async function getPostTestPeriod() {
+  const config = await prisma.config.findUnique({
+    where: {
+      key: "posttest_period",
+    },
+  });
+  console.log(config?.value.toUpperCase());
+
+  return config?.value.toUpperCase() as PostTestPeriod;
+}
+
 type SearchParams = Promise<{
   period?: string;
   created?: string;
@@ -43,7 +64,8 @@ async function getQuestions(): Promise<PostTestQuestion[]> {
 export default async function PostTestPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const questions = await getQuestions();
-
+  const postTestEnabled = await getPostTestEnabled();
+  const postTestPeriod = await getPostTestPeriod();
   const errorMessage = params.error ? (errorMessages[params.error] ?? params.error) : null;
   const createdId = params.created ?? null;
   const updatedId = params.updated ?? null;
@@ -55,6 +77,8 @@ export default async function PostTestPage({ searchParams }: { searchParams: Sea
   return (
     <PostTestSection
       questions={questions}
+      postTestEnabled={postTestEnabled}
+      postTestPeriod={postTestPeriod}
       activePeriod={activePeriod}
       errorMessage={errorMessage}
       createdId={createdId}

@@ -10,6 +10,8 @@ import { EmptyQuestions } from "./empty-questions";
 
 type PostTestSectionProps = {
   questions: PostTestQuestion[];
+  postTestEnabled: boolean;
+  postTestPeriod: PostTestPeriod;
   activePeriod: PostTestPeriod;
   errorMessage: string | null;
   createdId: string | null;
@@ -24,6 +26,8 @@ const periodLabel: Record<PostTestPeriod, string> = {
 
 export function PostTestSection({
   questions,
+  postTestEnabled,
+  postTestPeriod,
   activePeriod,
   errorMessage,
   createdId,
@@ -63,7 +67,64 @@ export function PostTestSection({
             Each question has four options (A–D) with one correct answer.
           </p>
         </div>
+        <div className="flex items-center gap-2 text-sm">
+          <span
+            className={`size-2 rounded-full ${
+              postTestPeriod === PostTestPeriod.FINAL
+                ? "bg-blue-500"
+                : "bg-orange-400"
+            }`}
+          />
+          <span>
+            {postTestPeriod === PostTestPeriod.FINAL ? "Final post-test" : "Midterm post-test"}
+          </span>
+        </div>
+        <form action="/api/admin/posttest/period/toggle" method="POST">
+          <input
+            type="hidden"
+            name="period"
+            value={postTestPeriod === PostTestPeriod.MIDTERM ? "final" : "midterm"}
+          />
 
+          <Button
+            type="submit"
+            variant={postTestPeriod === PostTestPeriod.FINAL ? "destructive" : "default"}
+            className="rounded-2xl"
+          >
+            {postTestPeriod === PostTestPeriod.FINAL
+              ? "Change to midterm post-test"
+              : "Change to final post-test"}
+          </Button>
+        </form>
+        <div className="flex items-center gap-2 text-sm">
+          <span
+            className={`size-2 rounded-full ${
+              postTestEnabled
+                ? "bg-green-500"
+                : "bg-slate-400"
+            }`}
+          />
+          <span>
+            {postTestEnabled ? "Post-test enabled" : "Post-test disabled"}
+          </span>
+        </div>
+        <form action="/api/admin/posttest/toggle" method="POST">
+          <input
+            type="hidden"
+            name="enabled"
+            value={(!postTestEnabled).toString()}
+          />
+
+          <Button
+            type="submit"
+            variant={postTestEnabled ? "destructive" : "default"}
+            className="rounded-2xl"
+          >
+            {postTestEnabled
+              ? "Disable post-test"
+              : "Enable post-test"}
+          </Button>
+        </form>
         <Button asChild variant="outline" size="lg" className="rounded-2xl px-5 shrink-0">
           <Link href="/admin">
             <ArrowLeft className="size-4" />
