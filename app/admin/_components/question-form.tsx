@@ -5,7 +5,7 @@ import { AnswerOption, PostTestPeriod, type PostTestQuestion } from "../_types";
 import { Button } from "@/components/ui/button";
 import { OptionBadge } from "./option-badge";
 
-const ANSWER_OPTIONS = [AnswerOption.A, AnswerOption.B, AnswerOption.C, AnswerOption.D] as const;
+const ANSWER_OPTIONS = [AnswerOption.A, AnswerOption.B, AnswerOption.C, AnswerOption.D, AnswerOption.E] as const;
 
 type QuestionFormProps = {
   period: PostTestPeriod;
@@ -67,7 +67,7 @@ export function QuestionForm({ period, nextSortOrder, question, onCancel }: Ques
         />
       </label>
 
-      {/* Options A–D */}
+      {/* Options A–E */}
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium text-slate-700 mb-2">Answer options</legend>
         <div className="grid gap-2 sm:grid-cols-2">

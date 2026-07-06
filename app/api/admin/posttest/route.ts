@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
     String(data.get("option_B") ?? "").trim(),
     String(data.get("option_C") ?? "").trim(),
     String(data.get("option_D") ?? "").trim(),
+    String(data.get("option_E") ?? "").trim(),
   ];
 
   const correctOption = String(data.get("correctOption") ?? "");

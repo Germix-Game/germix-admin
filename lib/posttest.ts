@@ -29,13 +29,13 @@ export function validateQuestionInput(input: QuestionInput) {
   }
 
   if (options !== undefined) {
-    if (options.some((o) => !o?.trim())) {
+    if (options.length !== 5 || options.some((o) => !o?.trim())) {
       return "missing_options";
     }
 
     const normalized = options.map((o) => o.trim());
 
-    if (new Set(normalized).size !== 4) {
+    if (new Set(normalized).size !== 5) {
       return "duplicate_option";
     }
   }

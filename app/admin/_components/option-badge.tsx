@@ -5,6 +5,7 @@ const optionColors: Record<AnswerOption, string> = {
   [AnswerOption.B]: "bg-sky-100 text-sky-700",
   [AnswerOption.C]: "bg-amber-100 text-amber-700",
   [AnswerOption.D]: "bg-rose-100 text-rose-700",
+  [AnswerOption.E]: "bg-indigo-100 text-indigo-700",
 };
 
 type OptionBadgeProps = {

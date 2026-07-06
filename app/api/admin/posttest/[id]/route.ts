@@ -53,6 +53,7 @@ async function handleUpdate(
         String(data.get("option_B") ?? "").trim(),
         String(data.get("option_C") ?? "").trim(),
         String(data.get("option_D") ?? "").trim(),
+        String(data.get("option_E") ?? "").trim(),
       ]
     : existing.options;
 

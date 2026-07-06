@@ -8,7 +8,7 @@ import { QuestionForm } from "./question-form";
 import { Button } from "@/components/ui/button";
 import { AnswerOption } from "../_types";
 
-const ANSWER_OPTIONS = [AnswerOption.A, AnswerOption.B, AnswerOption.C, AnswerOption.D] as const;
+const ANSWER_OPTIONS = [AnswerOption.A, AnswerOption.B, AnswerOption.C, AnswerOption.D, AnswerOption.E] as const;
 
 type QuestionRowProps = {
   question: PostTestQuestion;

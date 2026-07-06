@@ -33,7 +33,7 @@ type SearchParams = Promise<{
 
 const errorMessages: Record<string, string> = {
   missing_body: "Question text cannot be empty.",
-  missing_options: "All four answer options must be filled in.",
+  missing_options: "All five answer options must be filled in.",
   duplicate_option: "Answer options must be unique.",
   missing_correct: "Select a correct answer.",
   invalid_period: "Select a valid period (Midterm or Final).",
@@ -55,7 +55,7 @@ async function getQuestions(): Promise<PostTestQuestion[]> {
     id: q.id,
     period: q.period as PostTestPeriod,
     body: q.body,
-    options: q.options as [string, string, string, string],
+    options: q.options as [string, string, string, string, string],
     correctOption: q.correctOption as AnswerOption,
     sortOrder: q.sortOrder,
   }));
