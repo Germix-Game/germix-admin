@@ -31,6 +31,7 @@ async function handleUpdate(
 ) {
   const existing = await prisma.postTestQuestion.findUnique({
     where: { id },
+    include: { optionImages: true },
   });
 
   if (!existing) {
@@ -47,6 +48,13 @@ async function handleUpdate(
       ? String(data.get("body") ?? "").trim()
       : existing.body;
 
+  const bodyImageUrl = data.has("bodyImageUrl")
+    ? (data.get("bodyImageUrl") as string ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : existing.bodyImageUrl;
+
   const options = data.has("option_A")
     ? [
         String(data.get("option_A") ?? "").trim(),
@@ -56,6 +64,25 @@ async function handleUpdate(
         String(data.get("option_E") ?? "").trim(),
       ]
     : existing.options;
+
+  const hasOptionImageKeys = ["A", "B", "C", "D", "E"].some((opt) =>
+    data.has(`option_image_${opt}`)
+  );
+
+  let optionImagesToSet: { option: AnswerOption; imageUrl: string }[] | undefined = undefined;
+  if (hasOptionImageKeys) {
+    optionImagesToSet = [];
+    const ANSWER_OPTIONS = ["A", "B", "C", "D", "E"] as const;
+    for (const opt of ANSWER_OPTIONS) {
+      const imageUrl = String(data.get(`option_image_${opt}`) ?? "").trim();
+      if (imageUrl) {
+        optionImagesToSet.push({
+          option: opt as AnswerOption,
+          imageUrl,
+        });
+      }
+    }
+  }
 
   const correctOption =
     (data.get("correctOption") as string | null) ??
@@ -68,6 +95,7 @@ async function handleUpdate(
   const error = validateQuestionInput({
     period,
     body,
+    bodyImageUrl,
     options,
     correctOption,
     sortOrder,
@@ -78,15 +106,32 @@ async function handleUpdate(
   }
 
   try {
-    await prisma.postTestQuestion.update({
-      where: { id },
-      data: {
-        period: period as PostTestPeriod,
-        body,
-        options,
-        correctOption: correctOption as AnswerOption,
-        sortOrder,
-      },
+    await prisma.$transaction(async (tx) => {
+      if (optionImagesToSet !== undefined) {
+        await tx.postTestOptionImage.deleteMany({
+          where: { questionId: id },
+        });
+      }
+
+      await tx.postTestQuestion.update({
+        where: { id },
+        data: {
+          period: period as PostTestPeriod,
+          body,
+          bodyImageUrl,
+          options,
+          correctOption: correctOption as AnswerOption,
+          sortOrder,
+          ...(optionImagesToSet !== undefined && {
+            optionImages: {
+              create: optionImagesToSet.map((oi) => ({
+                option: oi.option,
+                imageUrl: oi.imageUrl,
+              })),
+            },
+          }),
+        },
+      });
     });
 
     return buildRedirect(req, period, {

@@ -45,6 +45,9 @@ const errorMessages: Record<string, string> = {
 
 async function getQuestions(): Promise<PostTestQuestion[]> {
   const questions = await prisma.postTestQuestion.findMany({
+    include: {
+      optionImages: true,
+    },
     orderBy: [
       { period: "asc" },
       { sortOrder: "asc" },
@@ -55,7 +58,12 @@ async function getQuestions(): Promise<PostTestQuestion[]> {
     id: q.id,
     period: q.period as PostTestPeriod,
     body: q.body,
+    bodyImageUrl: q.bodyImageUrl,
     options: q.options as [string, string, string, string, string],
+    optionImages: q.optionImages.map((oi) => ({
+      option: oi.option as AnswerOption,
+      imageUrl: oi.imageUrl,
+    })),
     correctOption: q.correctOption as AnswerOption,
     sortOrder: q.sortOrder,
   }));

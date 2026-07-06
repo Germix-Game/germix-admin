@@ -44,7 +44,28 @@ export function QuestionRow({ question, period, isHighlighted }: QuestionRowProp
         <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-500">
           {question.sortOrder}
         </span>
-        <p className="flex-1 text-sm font-medium leading-6 text-slate-900">{question.body}</p>
+        <div className="flex-1 space-y-3">
+          <p className="text-sm font-medium leading-6 text-slate-900">{question.body}</p>
+          {question.bodyImageUrl && question.bodyImageUrl.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {question.bodyImageUrl.map((url, index) => (
+                <div key={index} className="group/img relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-1.5 transition hover:border-slate-300">
+                  <img
+                    src={url}
+                    alt={`Question image ${index + 1}`}
+                    className="max-h-40 rounded-xl object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "https://placehold.co/200x150?text=Invalid+Image+Path";
+                    }}
+                  />
+                  <span className="absolute bottom-2 left-2 rounded-lg bg-slate-900/75 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition group-hover/img:opacity-100">
+                    {url}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             type="button"
@@ -75,29 +96,47 @@ export function QuestionRow({ question, period, isHighlighted }: QuestionRowProp
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {ANSWER_OPTIONS.map((opt, i) => {
           const isCorrect = question.correctOption === opt;
+          const optImage = question.optionImages?.find((oi) => oi.option === opt)?.imageUrl;
           return (
             <div
               key={opt}
               className={[
-                "flex items-center gap-3 rounded-2xl border px-3 py-2",
+                "flex flex-col gap-2 rounded-2xl border p-3",
                 isCorrect
                   ? "border-emerald-200 bg-emerald-50"
                   : "border-slate-100 bg-slate-50",
               ].join(" ")}
             >
-              <OptionBadge option={opt} isCorrect={isCorrect} />
-              <span
-                className={[
-                  "text-sm",
-                  isCorrect
-                    ? "font-medium text-emerald-800"
-                    : "text-slate-600",
-                ].join(" ")}
-              >
-                {question.options[i]}
-              </span>
-              {isCorrect && (
-                <span className="ml-auto text-xs font-semibold text-emerald-600">Correct</span>
+              <div className="flex items-center gap-3">
+                <OptionBadge option={opt} isCorrect={isCorrect} />
+                <span
+                  className={[
+                    "text-sm",
+                    isCorrect
+                      ? "font-medium text-emerald-800"
+                      : "text-slate-600",
+                  ].join(" ")}
+                >
+                  {question.options[i]}
+                </span>
+                {isCorrect && (
+                  <span className="ml-auto text-xs font-semibold text-emerald-600">Correct</span>
+                )}
+              </div>
+              {optImage && (
+                <div className="group/optimg relative self-start overflow-hidden rounded-xl border border-slate-200/60 bg-white p-1">
+                  <img
+                    src={optImage}
+                    alt={`Option ${opt} image`}
+                    className="max-h-24 rounded-lg object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "https://placehold.co/150x100?text=Invalid+Path";
+                    }}
+                  />
+                  <span className="absolute bottom-1.5 left-1.5 rounded-md bg-slate-900/75 px-1.5 py-0.5 text-[9px] font-medium text-white opacity-0 transition group-hover/optimg:opacity-100">
+                    {optImage}
+                  </span>
+                </div>
               )}
             </div>
           );

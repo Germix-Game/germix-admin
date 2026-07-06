@@ -29,6 +29,11 @@ export async function POST(req: NextRequest) {
 
   const body = String(data.get("body") ?? "").trim();
 
+  const bodyImageUrlRaw = String(data.get("bodyImageUrl") ?? "").trim();
+  const bodyImageUrl = bodyImageUrlRaw
+    ? bodyImageUrlRaw.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+
   const options = [
     String(data.get("option_A") ?? "").trim(),
     String(data.get("option_B") ?? "").trim(),
@@ -37,6 +42,18 @@ export async function POST(req: NextRequest) {
     String(data.get("option_E") ?? "").trim(),
   ];
 
+  const optionImages: { option: AnswerOption; imageUrl: string }[] = [];
+  const ANSWER_OPTIONS = ["A", "B", "C", "D", "E"] as const;
+  for (const opt of ANSWER_OPTIONS) {
+    const imageUrl = String(data.get(`option_image_${opt}`) ?? "").trim();
+    if (imageUrl) {
+      optionImages.push({
+        option: opt as AnswerOption,
+        imageUrl,
+      });
+    }
+  }
+
   const correctOption = String(data.get("correctOption") ?? "");
 
   const sortOrder = Number(data.get("sortOrder"));
@@ -44,6 +61,7 @@ export async function POST(req: NextRequest) {
   const error = validateQuestionInput({
     period,
     body,
+    bodyImageUrl,
     options,
     correctOption,
     sortOrder,
@@ -58,9 +76,16 @@ export async function POST(req: NextRequest) {
       data: {
         period: period as PostTestPeriod,
         body,
+        bodyImageUrl,
         options,
         correctOption: correctOption as AnswerOption,
         sortOrder,
+        optionImages: {
+          create: optionImages.map((oi) => ({
+            option: oi.option,
+            imageUrl: oi.imageUrl,
+          })),
+        },
       },
     });
 

@@ -3,6 +3,7 @@ import { AnswerOption, PostTestPeriod } from "@prisma/client";
 export type QuestionInput = {
   period?: string;
   body?: string;
+  bodyImageUrl?: string[];
   options?: string[];
   correctOption?: string;
   sortOrder?: number;

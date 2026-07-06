@@ -67,23 +67,47 @@ export function QuestionForm({ period, nextSortOrder, question, onCancel }: Ques
         />
       </label>
 
+      {/* Question Image Paths */}
+      <label className="block space-y-2">
+        <span className="text-sm font-medium text-slate-700">Question Image Path(s)</span>
+        <input
+          type="text"
+          name="bodyImageUrl"
+          defaultValue={isEditing ? question.bodyImageUrl?.join(", ") : ""}
+          placeholder="e.g. /images/questions/q1.png (separate multiple paths with commas, optional)"
+          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+        />
+      </label>
+
       {/* Options A–E */}
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium text-slate-700 mb-2">Answer options</legend>
         <div className="grid gap-2 sm:grid-cols-2">
-          {ANSWER_OPTIONS.map((opt, i) => (
-            <label key={opt} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 transition focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-200">
-              <OptionBadge option={opt} />
-              <input
-                type="text"
-                name={`option_${opt}`}
-                defaultValue={isEditing ? question.options[i] : ""}
-                placeholder={`Option ${opt}`}
-                required
-                className="flex-1 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400"
-              />
-            </label>
-          ))}
+          {ANSWER_OPTIONS.map((opt, i) => {
+            const existingImage = isEditing ? question.optionImages?.find((oi) => oi.option === opt)?.imageUrl || "" : "";
+            return (
+              <div key={opt} className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3.5 transition focus-within:border-slate-400 focus-within:ring-4 focus-within:ring-slate-200">
+                <div className="flex items-center gap-3">
+                  <OptionBadge option={opt} />
+                  <input
+                    type="text"
+                    name={`option_${opt}`}
+                    defaultValue={isEditing ? question.options[i] : ""}
+                    placeholder={`Option ${opt} Text`}
+                    required
+                    className="flex-1 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400 font-medium"
+                  />
+                </div>
+                <input
+                  type="text"
+                  name={`option_image_${opt}`}
+                  defaultValue={existingImage}
+                  placeholder={`Option ${opt} Image Path (optional)`}
+                  className="w-full rounded-xl border border-slate-100 bg-slate-50 px-3 py-1.5 text-xs text-slate-950 outline-none transition focus:border-slate-300 focus:bg-white placeholder:text-slate-400"
+                />
+              </div>
+            );
+          })}
         </div>
       </fieldset>
 
