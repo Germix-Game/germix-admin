@@ -90,7 +90,7 @@ model Score {
   player            Player      @relation(fields: [playerId], references: [id])
   session           GameSession @relation(fields: [sessionId], references: [id])
 
-  @@unique([sessionId, roundNumber])
+  @@index([sessionId, roundNumber])
   @@index([playerId, createdAt(sort: Desc)])
   @@index([microbeId])
 }
@@ -159,13 +159,24 @@ model PostTest {
 }
 
 model PostTestQuestion {
-  id            String         @id @default(cuid())
+  id            String                @id @default(cuid())
   period        PostTestPeriod
   body          String
+  bodyImageUrl  String[]
   options       String[]
+  optionImages  PostTestOptionImage[]
   correctOption AnswerOption
   sortOrder     Int
 }
+
+model PostTestOptionImage {
+  id         String           @id @default(cuid())
+  questionId String
+  option     AnswerOption
+  imageUrl   String
+  question   PostTestQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
 
 model Config {
   key   String @id
@@ -184,11 +195,16 @@ enum GramType {
   NEGATIVE
   ACID_FAST
   NONE
+  PROTOZOA
+  PLATYHEMINTH
+  NEMATODE
 }
 
 enum CardCategory {
   GRAM_STAIN
   VIRULENCE_FACTOR
+  TRANSMISSION
+  MORPHOLOGY
   LAB_CHARACTERISTIC
   SPECIAL_TRAIT
   CLINICAL_MANIFESTATION
@@ -213,4 +229,5 @@ enum AnswerOption {
   B
   C
   D
+  E
 }

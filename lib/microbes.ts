@@ -19,6 +19,9 @@ export const gramTypeOptions: EnumOption<GramType>[] = [
   { value: GramType.NEGATIVE, label: "Negative", slug: "negative" },
   { value: GramType.ACID_FAST, label: "Acid fast", slug: "acid-fast" },
   { value: GramType.NONE, label: "None", slug: "none" },
+  { value: GramType.NEMATODE, label: "Nematode", slug: "nematode" },
+  { value: GramType.PLATYHEMINTH, label: "Platyhelminth", slug: "platyhelminth" },
+  { value: GramType.PROTOZOA, label: "Protozoa", slug: "protozoa" },
 ];
 
 export const microbeTagOptions: EnumOption<MicrobeTag>[] = [

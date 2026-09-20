@@ -9,9 +9,9 @@ type SearchParams = Promise<{
 
 const errorMessages: Record<string, string> = {
   missing_file: "Choose a CSV file before uploading.",
-  missing_input: "Enter a username or choose a CSV file.",
-  invalid_csv: "The CSV file is missing the required username header.",
-  invalid_username: "The username cannot include leading or trailing spaces.",
+  missing_input: "Enter a username and password, or choose a CSV file.",
+  invalid_csv: "The CSV file is missing the required username and password headers.",
+  invalid_username: "Enter a valid username and password.",
 };
 
 export default async function UsersPage({ searchParams }: { searchParams: SearchParams }) {
@@ -19,7 +19,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
   const imported = params.imported ? Number(params.imported) : null;
   const skipped = params.skipped ? Number(params.skipped) : null;
   const errorMessage = params.error ? errorMessages[params.error] ?? params.error : null;
-  const infoMessage = params.message === "import_success" ? "Username import completed." : null;
+  const infoMessage = params.message === "import_success" ? "User import completed." : null;
 
   return (
     <UsernameImportSection

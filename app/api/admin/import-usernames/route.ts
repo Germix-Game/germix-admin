@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { buildFakeEmailForUsername } from "@/lib/username-import";
 
 type ImportUsernameError = {
   line: number;
@@ -11,6 +13,11 @@ type ImportResult = {
   imported: number;
   skipped: number;
   errors: ImportUsernameError[];
+};
+
+type ParsedUsernameImportRow = {
+  username: string;
+  password: string;
 };
 
 function wantsJson(request: NextRequest) {
@@ -52,23 +59,46 @@ function splitCsvLine(line: string) {
   return values;
 }
 
-function parseCsv(fileText: string): { usernames: string[]; errors: ImportUsernameError[] } {
+function normalizeUsername(rawUsername: string) {
+  const withoutBom = rawUsername.replace(/^\uFEFF/, "");
+  console.log(`Normalizing username: "${rawUsername}" -> "${withoutBom}"`);
+
+  const username = withoutBom.trim();
+  console.log(`Trimmed username: "${withoutBom}" -> "${username}"`);
+
+  if (!username) {
+    console.log(`Username is empty. Rejecting: "${rawUsername}"`);
+    return null;
+  }
+
+  return username;
+}
+
+function parseCsv(fileText: string): { rows: ParsedUsernameImportRow[]; errors: ImportUsernameError[] } {
   const errors: ImportUsernameError[] = [];
-  const usernames: string[] = [];
+  const rows: ParsedUsernameImportRow[] = [];
   const seen = new Set<string>();
 
   const normalizedText = fileText.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").trim();
 
   if (!normalizedText) {
-    return { usernames, errors: [{ line: 1, reason: "empty file" }] };
+    return { rows, errors: [{ line: 1, reason: "empty file" }] };
   }
 
   const lines = normalizedText.split("\n");
   const header = splitCsvLine(lines[0]).map((value) => value.trim());
+  console.log("Parsed CSV header:", header);
   const usernameIndex = header.findIndex((value) => value === "username");
+  console.log("Username column index:", usernameIndex);
+  const passwordIndex = header.findIndex((value) => value === "password");
+  console.log("Password column index:", passwordIndex);
 
-  if (usernameIndex === -1) {
-    return { usernames, errors: [{ line: 1, reason: 'missing required header "username"' }] };
+  if (usernameIndex === -1 || passwordIndex === -1) {
+    console.log("CSV header is missing required columns.");
+    return {
+      rows,
+      errors: [{ line: 1, reason: 'missing required headers "username" and "password"' }],
+    };
   }
 
   for (let lineIndex = 1; lineIndex < lines.length; lineIndex += 1) {
@@ -80,56 +110,183 @@ function parseCsv(fileText: string): { usernames: string[]; errors: ImportUserna
 
     const cells = splitCsvLine(line);
     const rawUsername = cells[usernameIndex] ?? "";
-    const username = rawUsername.trim();
+    const rawPassword = cells[passwordIndex].trim() ?? "";
+    const username = normalizeUsername(rawUsername);
 
-    if (!username.trim()) {
+    console.log(`Username: "${rawUsername}" -> "${username}", Password: "${rawPassword}"`);
+
+    if (!username || rawPassword.length === 0) {
+      errors.push({ line: lineIndex + 1, reason: "missing username or password" });
       continue;
     }
 
     if (seen.has(username)) {
+      errors.push({ line: lineIndex + 1, reason: "duplicate username in file" });
       continue;
     }
 
     seen.add(username);
-    usernames.push(username);
+    rows.push({ username, password: rawPassword });
   }
 
-  return { usernames, errors };
+  console.log(`Rows: ${rows}, Errors: ${errors}`);
+  return { rows, errors };
 }
 
-function parseSingleUsername(rawUsername: string): { usernames: string[]; errors: ImportUsernameError[] } {
-  const username = rawUsername.replace(/^\uFEFF/, "").trim();
+function parseSingleUsername(
+  rawUsername: string,
+  rawPassword: string
+): { rows: ParsedUsernameImportRow[]; errors: ImportUsernameError[] } {
+  const username = normalizeUsername(rawUsername);
 
-  if (!username.trim()) {
-    return { usernames: [], errors: [{ line: 1, reason: "missing username" }] };
+  if (!username || rawPassword.length === 0) {
+    return { rows: [], errors: [{ line: 1, reason: "missing username or password" }] };
   }
 
-  return { usernames: [username], errors: [] };
+  return { rows: [{ username, password: rawPassword }], errors: [] };
 }
 
-async function importUsernames(usernames: string[]) {
+function isDuplicateAuthUserError(error: unknown) {
+  const authError = error as { message?: string; status?: number; code?: string } | null;
+
+  return Boolean(
+    authError &&
+      (authError.status === 422 ||
+        authError.code === "user_already_exists" ||
+        /already (?:registered|exists)/i.test(authError.message ?? ""))
+  );
+}
+
+function isUniqueConstraintError(error: unknown) {
+  const prismaError = error as { code?: string; message?: string } | null;
+  return prismaError?.code === "P2002" || /unique constraint/i.test(prismaError?.message ?? "");
+}
+
+async function deleteAuthUser(userId: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function createAuthUser(username: string, password: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const email = buildFakeEmailForUsername(username);
+
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { username },
+  });
+
+  if (error) {
+    if (isDuplicateAuthUserError(error)) {
+      // return { alreadyExisted: true, userId: null };
+      throw new Error(`User "${username}" already exists in auth`);
+    }
+
+    throw error;
+  }
+
+  if (!data.user?.id) {
+    throw new Error(`Supabase did not return a user id for ${email}.`);
+  }
+
+  return { alreadyExisted: false, userId: data.user.id };
+}
+
+async function importUsernames(rows: ParsedUsernameImportRow[]) {
   const importedUsernames: string[] = [];
   let skipped = 0;
+  const errors: ImportUsernameError[] = [];
 
-  for (const username of usernames) {
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    const line = index + 1;
+
     const existing = await prisma.approvedUsername.findUnique({
-      where: { username },
+      where: { username: row.username },
       select: { username: true },
     });
 
     if (existing) {
       skipped += 1;
+      errors.push({
+        line,
+        reason: "username already exists",
+      });
       continue;
     }
 
-    await prisma.approvedUsername.create({
-      data: { username },
-    });
+    let authUserId: string | null = null;
+    let authUserAlreadyExisted = false;
 
-    importedUsernames.push(username);
+    try {
+      const authUser = await createAuthUser(row.username, row.password);
+      authUserId = authUser.userId;
+      authUserAlreadyExisted = authUser.alreadyExisted;
+
+      // await prisma.approvedUsername.create({
+      //   data: { username: row.username },
+      // });
+      if (!authUserId) {
+        throw new Error("Missing auth user id");
+      }
+
+      await prisma.approvedUsername.create({
+        data: {
+          username: row.username,
+          player: {
+            create: {
+              id: authUserId,
+              // username: row.username,
+            },
+          },
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("already exists in auth")
+      ) {
+        skipped += 1;
+        errors.push({
+          line,
+          reason: "username already exists",
+        });
+        continue;
+      }
+      if (authUserId && !authUserAlreadyExisted) {
+        try {
+          await deleteAuthUser(authUserId);
+        } catch {
+          // Ignore cleanup errors and surface the original failure.
+        }
+      }
+
+      if (isUniqueConstraintError(error)) {
+        skipped += 1;
+        errors.push({
+          line,
+          reason: error instanceof Error ? error.message : "failed to import username",
+        });
+        continue;
+      }
+
+      errors.push({
+        line,
+        reason: error instanceof Error ? error.message : "failed to import username",
+      });
+      continue;
+    }
+
+    importedUsernames.push(row.username);
   }
 
-  return { importedUsernames, skipped };
+  return { importedUsernames, skipped, errors };
 }
 
 export async function POST(request: NextRequest) {
@@ -141,29 +298,36 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const uploadedFile = formData.get("file") ?? formData.get("csv");
   const manualUsername = String(formData.get("username") ?? "");
+  const manualPassword = String(formData.get("password") ?? "");
 
   const hasManualUsername = manualUsername.trim().length > 0;
   const hasFileUpload = uploadedFile instanceof File;
 
   if (!hasManualUsername && !hasFileUpload) {
-    const response: ImportResult = { imported: 0, skipped: 0, errors: [{ line: 0, reason: "missing username or CSV file" }] };
+    const response: ImportResult = {
+      imported: 0,
+      skipped: 0,
+      errors: [{ line: 0, reason: "missing username and password or CSV file" }],
+    };
     return wantsJson(request)
       ? NextResponse.json(response, { status: 400 })
       : NextResponse.redirect(new URL("/admin/users?error=missing_input", request.url), { status: 303 });
   }
 
-  let parsed: { usernames: string[]; errors: ImportUsernameError[] };
+  let parsed: { rows: ParsedUsernameImportRow[]; errors: ImportUsernameError[] };
 
   if (hasManualUsername) {
-    parsed = parseSingleUsername(manualUsername);
+    parsed = parseSingleUsername(manualUsername, manualPassword);
   } else if (hasFileUpload) {
     const fileText = await uploadedFile.text();
     parsed = parseCsv(fileText);
+    console.log("Parsed CSV:", parsed);
   } else {
-    parsed = { usernames: [], errors: [{ line: 0, reason: "missing input" }] };
+    parsed = { rows: [], errors: [{ line: 0, reason: "missing input" }] };
   }
 
-  if (parsed.errors.length > 0 && parsed.usernames.length === 0) {
+  if (parsed.errors.length > 0 && parsed.rows.length === 0) {
+    console.log("Parsed CSV has errors and no valid rows to import.");
     const response: ImportResult = { imported: 0, skipped: 0, errors: parsed.errors };
     return wantsJson(request)
       ? NextResponse.json(response, { status: 400 })
@@ -176,12 +340,12 @@ export async function POST(request: NextRequest) {
         );
   }
 
-  const { importedUsernames, skipped } = await importUsernames(parsed.usernames);
+  const { importedUsernames, skipped, errors } = await importUsernames(parsed.rows);
 
   const response: ImportResult = {
     imported: importedUsernames.length,
     skipped: skipped + parsed.errors.length,
-    errors: parsed.errors,
+    errors: [...parsed.errors, ...errors],
   };
 
   if (wantsJson(request)) {
@@ -192,7 +356,8 @@ export async function POST(request: NextRequest) {
   redirectUrl.searchParams.set("imported", String(response.imported));
   redirectUrl.searchParams.set("skipped", String(response.skipped));
   if (response.errors.length > 0) {
-    redirectUrl.searchParams.set("error", response.errors[0].reason);
+    const fullErrorMessage = response.errors.map((e) => `Line ${e.line}: ${e.reason}`).join("; ");
+    redirectUrl.searchParams.set("error", `[one indexed] ${fullErrorMessage}`);
   } else {
     redirectUrl.searchParams.set("message", "import_success");
   }
