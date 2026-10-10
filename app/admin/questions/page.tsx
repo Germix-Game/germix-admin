@@ -36,7 +36,7 @@ const errorMessages: Record<string, string> = {
   missing_options: "All five answer options must be filled in.",
   duplicate_option: "Answer options must be unique.",
   missing_correct: "Select a correct answer.",
-  invalid_period: "Select a valid period (Midterm or Final).",
+  invalid_period: "Select a valid period (Midterm, Prefinal, or Final).",
   invalid_sort_order: "Question number must be a positive integer.",
   duplicate_sort_order: "That question number is already taken for this period.",
   not_found: "Question not found.",
@@ -80,7 +80,11 @@ export default async function PostTestPage({ searchParams }: { searchParams: Sea
   const deletedId = params.deleted ?? null;
 
   const activePeriod =
-    params.period === PostTestPeriod.FINAL ? PostTestPeriod.FINAL : PostTestPeriod.MIDTERM;
+    params.period === PostTestPeriod.FINAL
+      ? PostTestPeriod.FINAL
+      : params.period === PostTestPeriod.PREFINAL
+      ? PostTestPeriod.PREFINAL
+      : PostTestPeriod.MIDTERM;
 
   return (
     <PostTestSection

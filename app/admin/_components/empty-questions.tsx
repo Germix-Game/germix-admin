@@ -3,6 +3,7 @@ import { PostTestPeriod } from "../_types";
 
 const periodLabel: Record<PostTestPeriod, string> = {
   [PostTestPeriod.MIDTERM]: "Midterm",
+  [PostTestPeriod.PREFINAL]: "Prefinal",
   [PostTestPeriod.FINAL]: "Final",
 };
 
