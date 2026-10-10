@@ -21,6 +21,7 @@ type PostTestSectionProps = {
 
 const periodLabel: Record<PostTestPeriod, string> = {
   [PostTestPeriod.MIDTERM]: "Midterm",
+  [PostTestPeriod.PREFINAL]: "Prefinal",
   [PostTestPeriod.FINAL]: "Final",
 };
 
@@ -63,7 +64,7 @@ export function PostTestSection({
             Post-test questions
           </h2>
           <p className="text-sm leading-6 text-slate-600">
-            Manage multiple-choice questions for the midterm and final post-tests.
+            Manage multiple-choice questions for the midterm, prefinal, and final post-tests.
             Each question has four options (A–D) with one correct answer.
           </p>
         </div>
@@ -72,28 +73,31 @@ export function PostTestSection({
             className={`size-2 rounded-full ${
               postTestPeriod === PostTestPeriod.FINAL
                 ? "bg-blue-500"
+                : postTestPeriod === PostTestPeriod.PREFINAL
+                ? "bg-purple-500"
                 : "bg-orange-400"
             }`}
           />
           <span>
-            {postTestPeriod === PostTestPeriod.FINAL ? "Final post-test" : "Midterm post-test"}
+            {periodLabel[postTestPeriod]} post-test
           </span>
         </div>
-        <form action="/api/admin/posttest/period/toggle" method="POST">
-          <input
-            type="hidden"
+        <form action="/api/admin/posttest/period/toggle" method="POST" className="flex items-center gap-2">
+          <select
             name="period"
-            value={postTestPeriod === PostTestPeriod.MIDTERM ? "final" : "midterm"}
-          />
+            defaultValue={postTestPeriod.toLowerCase()}
+            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+          >
+            <option value="midterm">Midterm</option>
+            <option value="prefinal">Prefinal</option>
+            <option value="final">Final</option>
+          </select>
 
           <Button
             type="submit"
-            variant={postTestPeriod === PostTestPeriod.FINAL ? "destructive" : "default"}
             className="rounded-2xl"
           >
-            {postTestPeriod === PostTestPeriod.FINAL
-              ? "Change to midterm post-test"
-              : "Change to final post-test"}
+            Set active period
           </Button>
         </form>
         <div className="flex items-center gap-2 text-sm">

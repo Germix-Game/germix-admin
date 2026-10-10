@@ -1,5 +1,6 @@
 export enum PostTestPeriod {
   MIDTERM = "MIDTERM",
+  PREFINAL = "PREFINAL",
   FINAL = "FINAL",
 }
 

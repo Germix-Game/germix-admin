@@ -7,6 +7,7 @@ type PeriodTabsProps = {
 
 const tabs: { label: string; period: PostTestPeriod }[] = [
   { label: "Midterm", period: PostTestPeriod.MIDTERM },
+  { label: "Prefinal", period: PostTestPeriod.PREFINAL },
   { label: "Final", period: PostTestPeriod.FINAL },
 ];
 
